@@ -13,7 +13,7 @@ MODEL_CANDIDATES = {
     "phi-3-mini": "microsoft/Phi-3-mini-4k-instruct",
     "phi-3-small": "microsoft/Phi-3-small-8k-instruct",
     "olmo-2-1b": "allenai/OLMo-2-0425-1B-SFT",
-    "olmo-2-7b": "allenai/OLMo-2-7B",
+    "olmo-2-7b": "allenai/OLMo-2-1124-7B-SFT",
     "qwen2.5-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
     "gemma-3-1b": "google/gemma-3-1b-it",
     "vaultgemma-1b": "google/vaultgemma-1b",
