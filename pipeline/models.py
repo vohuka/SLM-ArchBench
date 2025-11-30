@@ -10,7 +10,10 @@ from config import USE_4BIT, LORA_CONFIG, MAX_LENGTH
 def load_tokenizer_and_model(model_id: str):
     """Load tokenizer and model with LoRA for 4-bit training."""
     tokenizer = AutoTokenizer.from_pretrained(
-        model_id, use_fast=True, padding_side="right"
+        model_id, 
+        use_fast=True, 
+        padding_side="right",
+        trust_remote_code=True
     )
 
     if tokenizer.pad_token is None:
@@ -28,7 +31,10 @@ def load_tokenizer_and_model(model_id: str):
                 bnb_4bit_quant_type="nf4",
             )
             model = AutoModelForCausalLM.from_pretrained(
-                model_id, device_map=device_map, quantization_config=bnb_config
+                model_id, 
+                device_map=device_map, 
+                quantization_config=bnb_config,
+                trust_remote_code=True
             )
             
             # Prepare model for LoRA
@@ -49,11 +55,17 @@ def load_tokenizer_and_model(model_id: str):
         except ImportError:
             print("[WARN] bitsandbytes not available, loading in float16.")
             model = AutoModelForCausalLM.from_pretrained(
-                model_id, device_map=device_map, torch_dtype=torch.float16
+                model_id, 
+                device_map=device_map, 
+                torch_dtype=torch.float16,
+                trust_remote_code=True
             )
     else:
         model = AutoModelForCausalLM.from_pretrained(
-            model_id, device_map=device_map, torch_dtype=torch.float16
+            model_id, 
+            device_map=device_map, 
+            torch_dtype=torch.float16,
+            trust_remote_code=True
         )
 
     return tokenizer, model

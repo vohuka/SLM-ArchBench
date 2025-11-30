@@ -19,3 +19,5 @@ sentence-transformers
 rouge_score 
 bert_score
 openai
+tiktoken
+pytest
