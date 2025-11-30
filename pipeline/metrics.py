@@ -1,5 +1,5 @@
 """
-All metric computation functions: NLG + Research metrics. 
+All metric computation functions: NLG + Research metrics.
 """
 import numpy as np
 import time
@@ -34,7 +34,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         metrics['rouge2'] = np.mean(rouge_scores['rouge2'])
         metrics['rougeL'] = np.mean(rouge_scores['rougeL'])
     except ImportError:
-        print("[WARN] rouge-score not installed.  Skipping ROUGE.")
+        print("[WARN] rouge-score not installed.Skipping ROUGE.")
         metrics['rouge1'] = metrics['rouge2'] = metrics['rougeL'] = 0.0
     
     # BLEU
@@ -53,7 +53,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         
         metrics['bleu'] = np.mean(bleu_scores)
     except ImportError:
-        print("[WARN] nltk not installed. Skipping BLEU.")
+        print("[WARN] nltk not installed.Skipping BLEU.")
         metrics['bleu'] = 0.0
     
     # METEOR
@@ -70,7 +70,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         
         metrics['meteor'] = np.mean(meteor_scores)
     except Exception as e:
-        print(f"[WARN] METEOR scoring failed: {e}. Skipping.")
+        print(f"[WARN] METEOR scoring failed: {e}.Skipping.")
         metrics['meteor'] = 0.0
     
     # BERTScore
@@ -81,7 +81,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         metrics['bertscore_recall'] = R.mean().item()
         metrics['bertscore_f1'] = F1.mean().item()
     except ImportError:
-        print("[WARN] bert-score not installed. Skipping BERTScore.")
+        print("[WARN] bert-score not installed.Skipping BERTScore.")
         metrics['bertscore_precision'] = 0.0
         metrics['bertscore_recall'] = 0.0
         metrics['bertscore_f1'] = 0.0
@@ -113,17 +113,17 @@ def compute_diversity_score(responses: List[str]) -> float:
 
         return float(np.mean(similarities)) if similarities else 0.0
     except ImportError:
-        print("[WARN] sentence-transformers not installed. Skipping Diversity Score.")
+        print("[WARN] sentence-transformers not installed.Skipping Diversity Score.")
         return 0.0
 
 
 def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     """
-    Compliance Score using Gemini 2. 5 Flash as LLM-as-a-Judge.
-    Free tier: 15 RPM, 1M TPM, 1500 RPD. 
+    Compliance Score using Gemini 2.5 Flash as LLM-as-a-Judge.
+    Free tier: 15 RPM, 1M TPM, 1500 RPD.
     """
     if not GEMINI_API_KEY:
-        print("[WARN] GEMINI_API_KEY not set. Skipping Compliance Score.")
+        print("[WARN] GEMINI_API_KEY not set.Skipping Compliance Score.")
         return 0.0
     
     try:
@@ -163,7 +163,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         - 61-80: Good alignment with minor differences
         - 81-100: Excellent alignment, equivalent or better
 
-        Respond with ONLY a number between 0 and 100. No explanation."""
+        Respond with ONLY a number between 0 and 100.No explanation."""
 
         max_retries = 3
         retry_delay = 2
@@ -176,7 +176,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                         temperature=0.0,
                         top_p=1.0,
                         top_k=1,
-                        max_output_tokens=50,
+                        max_output_tokens=65536,
                     )
                 )
                 
@@ -233,7 +233,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                 error_msg = str(e)
                 if "429" in error_msg or "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
                     if attempt < max_retries - 1:
-                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s...(attempt {attempt + 1}/{max_retries})")
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue
@@ -248,7 +248,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         return 0.0
         
     except ImportError:
-        print("[ERROR] google-generativeai not installed. Run: pip install google-generativeai")
+        print("[ERROR] google-generativeai not installed.Run: pip install google-generativeai")
         return 0.0
     except Exception as e:
         print(f"[ERROR] Compliance scoring with Gemini failed: {e}")
