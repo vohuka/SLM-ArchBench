@@ -6,6 +6,8 @@ import time
 from typing import List, Dict
 from utils import extract_components
 from config import JUDGE_MODEL, GEMINI_API_KEY
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
 
 
 # ============================================================
@@ -135,10 +137,10 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         model = genai.GenerativeModel(
             JUDGE_MODEL,
             safety_settings={
-                "HARASSMENT": "BLOCK_NONE",
-                "HATE_SPEECH": "BLOCK_NONE",
-                "SEXUALLY_EXPLICIT": "BLOCK_NONE",
-                "DANGEROUS_CONTENT": "BLOCK_NONE",
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold. BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
         )
         

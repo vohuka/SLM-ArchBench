@@ -5,6 +5,7 @@ import re
 from typing import Set
 
 
+
 def count_parameters(model):
     """Count total and trainable parameters in the model."""
     total_params = sum(p.numel() for p in model.parameters())
