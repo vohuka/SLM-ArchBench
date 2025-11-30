@@ -102,7 +102,7 @@ def extract_components(text: str) -> Set[str]:
     components.update(repos)
     
     # Pattern for project/library names (e.g., "plutus-apps", "snake-yaml")
-    project_pattern = r'\b[a-z]+-[a-z]+(? :-[a-z]+)*\b'
+    project_pattern = r'\b[a-z]+-[a-z]+(?:-[a-z]+)*\b'
     projects = re.findall(project_pattern, text)
     # Filter out common false positives
     project_blacklist = {'open-source', 'well-known', 'up-to-date', 'user-friendly', 'real-time'}
