@@ -3,9 +3,10 @@ All metric computation functions: NLG + Research metrics.
 """
 import os
 import numpy as np
+import time
 from typing import List, Dict
 from utils import extract_components
-from config import JUDGE_MODEL
+from config import JUDGE_MODEL, GEMINI_API_KEY
 
 
 # ============================================================
@@ -23,10 +24,10 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         rouge_scores = {'rouge1': [], 'rouge2': [], 'rougeL': []}
         
         for pred, ref in zip(predictions, references):
-            scores = scorer.score(ref, pred)
+            scores = scorer. score(ref, pred)
             rouge_scores['rouge1'].append(scores['rouge1'].fmeasure)
-            rouge_scores['rouge2'].append(scores['rouge2'].fmeasure)
-            rouge_scores['rougeL'].append(scores['rougeL'].fmeasure)
+            rouge_scores['rouge2'].append(scores['rouge2']. fmeasure)
+            rouge_scores['rougeL']. append(scores['rougeL'].fmeasure)
         
         metrics['rouge1'] = np.mean(rouge_scores['rouge1'])
         metrics['rouge2'] = np.mean(rouge_scores['rouge2'])
@@ -63,8 +64,8 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         
         meteor_scores = []
         for pred, ref in zip(predictions, references):
-            score = meteor_score([ref.split()], pred.split())
-            meteor_scores.append(score)
+            score = meteor_score([ref.split()], pred. split())
+            meteor_scores. append(score)
         
         metrics['meteor'] = np.mean(meteor_scores)
     except Exception as e:
@@ -75,7 +76,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
     try:
         from bert_score import score as bert_score
         P, R, F1 = bert_score(predictions, references, lang="en", verbose=False)
-        metrics['bertscore_precision'] = P.mean().item()
+        metrics['bertscore_precision'] = P.mean(). item()
         metrics['bertscore_recall'] = R.mean().item()
         metrics['bertscore_f1'] = F1.mean().item()
     except ImportError:
@@ -111,25 +112,38 @@ def compute_diversity_score(responses: List[str]) -> float:
 
         return float(np.mean(similarities)) if similarities else 0.0
     except ImportError:
-        print("[WARN] sentence-transformers not installed. Skipping Diversity Score.")
+        print("[WARN] sentence-transformers not installed.  Skipping Diversity Score.")
         return 0.0
 
 
 def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
-    """Compliance Score using LLM-as-a-Judge."""
+    """
+    Compliance Score using Gemini 2.0 Flash as LLM-as-a-Judge.
+    Free tier: 15 RPM, 1M TPM, 1500 RPD.
+    """
+    # Check API key
+    if not GEMINI_API_KEY:
+        print("[WARN] GEMINI_API_KEY not set. Skipping Compliance Score.")
+        return 0.0
+    
     try:
-        import openai
+        import google.generativeai as genai
+        
+        # Configure Gemini
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # Initialize model
+        model = genai. GenerativeModel(JUDGE_MODEL)
+        
+        # Build prompt
+        prompt = f"""You are an expert software architecture evaluator. 
 
-        if "OPENAI_API_KEY" not in os.environ:
-            print("[WARN] OPENAI_API_KEY not set. Skipping Compliance Score.")
-            return 0.0
+        Given a model's generated architectural decision and the ground truth, rate how well the model's answer aligns with standard architectural patterns and the ground truth decision.
 
-        openai.api_key = os.environ["OPENAI_API_KEY"]
-
-        #IMPORTANT
-        prompt = f"""
-        You are an expert software architecture evaluator.
-        Given a model's generated architectural decision and the ground truth, rate the compliance of the model's answer with standard architectural patterns (e.g., MVC separation, layered architecture).
+        Consider:
+        - Correctness of architectural approach
+        - Alignment with the ground truth rationale
+        - Compliance with architectural best practices (e.g., MVC, microservices, layered architecture)
 
         Model Answer:
         {model_answer}
@@ -137,31 +151,82 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         Ground Truth:
         {ground_truth}
 
-        Rate the compliance from 0 to 100 (0 = not compliant, 100 = fully compliant). Respond ONLY with a number.
-        """
+        Rate the compliance from 0 to 100:
+        - 0-20: Completely wrong or irrelevant
+        - 21-40: Partially correct but major issues
+        - 41-60: Somewhat aligned but significant gaps
+        - 61-80: Good alignment with minor differences
+        - 81-100: Excellent alignment, equivalent or better
 
-        response = openai.ChatCompletion.create(
-            model=JUDGE_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-        )
+        Respond with ONLY a number between 0 and 100.  No explanation."""
 
-        score_str = response["choices"][0]["message"]["content"].strip()
-        return float(score_str)
+        # Generate with retry logic
+        max_retries = 3
+        retry_delay = 2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.0,
+                        top_p=1.0,
+                        top_k=1,
+                        max_output_tokens=10,
+                    )
+                )
+                
+                # Extract score
+                score_text = response.text. strip()
+                
+                # Parse score (handle various formats)
+                import re
+                numbers = re.findall(r'\d+', score_text)
+                if numbers:
+                    score = float(numbers[0])
+                    # Clamp to 0-100
+                    score = max(0.0, min(100.0, score))
+                    return score
+                else:
+                    print(f"[WARN] Could not parse score from: '{score_text}'")
+                    return 0.0
+                    
+            except Exception as e:
+                if "429" in str(e) or "quota" in str(e). lower():
+                    # Rate limit hit
+                    if attempt < max_retries - 1:
+                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s...  (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        print(f"[ERROR] Rate limit exceeded after {max_retries} attempts")
+                        return 0.0
+                else:
+                    raise
+        
+        return 0.0
+        
+    except ImportError:
+        print("[ERROR] google-generativeai not installed. Run: pip install google-generativeai")
+        return 0.0
     except Exception as e:
-        print(f"[ERROR] Compliance scoring failed: {e}")
+        print(f"[ERROR] Compliance scoring with Gemini failed: {e}")
+        import traceback
+        traceback.print_exc()
         return 0.0
 
 
 def compute_ripple_effect_recall(model_answer: str, ground_truth: str) -> Dict[str, float]:
-    """Ripple Effect Recall with regex-based component extraction."""
+    """Ripple Effect Recall with improved regex-based component extraction."""
     model_components = extract_components(model_answer)
     truth_components = extract_components(ground_truth)
 
     if len(truth_components) == 0:
         return {
             "recall": 0.0, "precision": 0.0, "f1": 0.0, "tp": 0,
-            "model_components_count": 0, "truth_components_count": 0
+            "model_components_count": len(model_components), 
+            "truth_components_count": 0
         }
 
     tp = len(model_components & truth_components)

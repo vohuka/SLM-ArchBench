@@ -77,6 +77,6 @@ GENERATION_CONFIG = {
 }
 
 # API Configuration
-HF_TOKEN = os.environ.get("HF_TOKEN", None)
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", None)
-JUDGE_MODEL = "gpt-4o-mini"
+HF_TOKEN = os.environ. get("HF_TOKEN", None)
+GEMINI_API_KEY = os. environ.get("GEMINI_API_KEY", None)
+JUDGE_MODEL = "gemini-2.5-flash" 

@@ -18,6 +18,7 @@ trl
 sentence-transformers 
 rouge_score 
 bert_score
-openai
+google-generativeai
 tiktoken
 pytest
+openpyxl
