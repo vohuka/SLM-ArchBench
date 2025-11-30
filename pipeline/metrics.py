@@ -119,10 +119,9 @@ def compute_diversity_score(responses: List[str]) -> float:
 
 def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     """
-    Compliance Score using Gemini 2.0 Flash as LLM-as-a-Judge.
+    Compliance Score using Gemini 2. 5 Flash as LLM-as-a-Judge.
     Free tier: 15 RPM, 1M TPM, 1500 RPD. 
     """
-    # Check API key
     if not GEMINI_API_KEY:
         print("[WARN] GEMINI_API_KEY not set. Skipping Compliance Score.")
         return 0.0
@@ -130,22 +129,19 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     try:
         import google.generativeai as genai
         
-        # Configure Gemini
         genai.configure(api_key=GEMINI_API_KEY)
         
-        # Initialize model with safety settings disabled
         model = genai.GenerativeModel(
             JUDGE_MODEL,
             safety_settings={
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold. BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
         )
         
-        # Build prompt
-        prompt = f"""You are an expert software architecture evaluator.  
+        prompt = f"""You are an expert software architecture evaluator.
 
         Given a model's generated architectural decision and the ground truth, rate how well the model's answer aligns with standard architectural patterns and the ground truth decision.
 
@@ -167,11 +163,10 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         - 61-80: Good alignment with minor differences
         - 81-100: Excellent alignment, equivalent or better
 
-        Respond with ONLY a number between 0 and 100.  No explanation."""
+        Respond with ONLY a number between 0 and 100. No explanation."""
 
-        # Generate with retry logic
         max_retries = 3
-        retry_delay = 2  # seconds
+        retry_delay = 2
         
         for attempt in range(max_retries):
             try:
@@ -181,59 +176,74 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                         temperature=0.0,
                         top_p=1.0,
                         top_k=1,
-                        max_output_tokens=10,
+                        max_output_tokens=50,
                     )
                 )
                 
-                # Check if response was blocked
+                # Check candidates exist
                 if not response.candidates:
                     print(f"[WARN] Gemini response blocked (no candidates)")
                     return 0.0
                 
                 candidate = response.candidates[0]
                 
-                # Check finish reason
-                # 0=FINISH_REASON_UNSPECIFIED, 1=STOP (normal), 2=MAX_TOKENS, 3=SAFETY, 4=RECITATION, 5=OTHER
+                # Handle finish reasons
                 if candidate.finish_reason == 3:  # SAFETY
                     print(f"[WARN] Gemini blocked response due to safety filters")
                     return 0.0
-                elif candidate.finish_reason not in [1, 2]:  # Not STOP or MAX_TOKENS
-                    print(f"[WARN] Unexpected finish_reason: {candidate.finish_reason}")
-                    return 0.0
                 
-                # Extract score
-                if not response.text:
-                    print(f"[WARN] Empty response text")
-                    return 0.0
-                    
-                score_text = response.text.strip()
+                # Try to extract text from candidate
+                score_text = ""
                 
-                # Parse score (handle various formats)
-                import re
-                numbers = re.findall(r'\d+', score_text)
-                if numbers:
-                    score = float(numbers[0])
-                    # Clamp to 0-100
-                    score = max(0.0, min(100.0, score))
-                    return score
+                # Method 1: Try response.text (only works for finish_reason=1)
+                if candidate.finish_reason == 1:  # STOP (normal)
+                    try:
+                        score_text = response.text.strip()
+                    except:
+                        pass
+                
+                # Method 2: Extract from parts directly (works for finish_reason=1,2)
+                if not score_text:
+                    try:
+                        if candidate.content and candidate.content.parts:
+                            parts_text = []
+                            for part in candidate.content.parts:
+                                if hasattr(part, 'text'):
+                                    parts_text.append(part.text)
+                            score_text = "".join(parts_text).strip()
+                    except Exception as e:
+                        print(f"[WARN] Failed to extract from parts: {e}")
+                
+                # Parse score
+                if score_text:
+                    import re
+                    numbers = re.findall(r'\d+', score_text)
+                    if numbers:
+                        score = float(numbers[0])
+                        score = max(0.0, min(100.0, score))
+                        return score
+                    else:
+                        print(f"[WARN] Could not parse score from: '{score_text}'")
+                        return 0.0
                 else:
-                    print(f"[WARN] Could not parse score from: '{score_text}'")
+                    print(f"[WARN] Empty response (finish_reason={candidate.finish_reason})")
                     return 0.0
                     
             except Exception as e:
                 error_msg = str(e)
                 if "429" in error_msg or "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
-                    # Rate limit hit
                     if attempt < max_retries - 1:
-                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s...  (attempt {attempt + 1}/{max_retries})")
+                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
                         time.sleep(retry_delay)
-                        retry_delay *= 2  # Exponential backoff
+                        retry_delay *= 2
                         continue
                     else:
                         print(f"[ERROR] Rate limit exceeded after {max_retries} attempts")
                         return 0.0
                 else:
-                    raise
+                    # Log but don't crash
+                    print(f"[WARN] Unexpected error in compliance scoring: {e}")
+                    return 0.0
         
         return 0.0
         
@@ -242,10 +252,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         return 0.0
     except Exception as e:
         print(f"[ERROR] Compliance scoring with Gemini failed: {e}")
-        import traceback
-        traceback.print_exc()
         return 0.0
-
 
 def compute_ripple_effect_recall(model_answer: str, ground_truth: str) -> Dict[str, float]:
     """Ripple Effect Recall with improved regex-based component extraction."""
