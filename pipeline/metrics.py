@@ -1,7 +1,6 @@
 """
-All metric computation functions: NLG + Research metrics.
+All metric computation functions: NLG + Research metrics. 
 """
-import os
 import numpy as np
 import time
 from typing import List, Dict
@@ -10,7 +9,7 @@ from config import JUDGE_MODEL, GEMINI_API_KEY
 
 
 # ============================================================
-# NLG METRICS
+# NLG METRICS (giữ nguyên)
 # ============================================================
 
 def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[str, float]:
@@ -20,20 +19,20 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
     # ROUGE
     try:
         from rouge_score import rouge_scorer
-        scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+        scorer = rouge_scorer. RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
         rouge_scores = {'rouge1': [], 'rouge2': [], 'rougeL': []}
         
         for pred, ref in zip(predictions, references):
-            scores = scorer. score(ref, pred)
-            rouge_scores['rouge1'].append(scores['rouge1'].fmeasure)
-            rouge_scores['rouge2'].append(scores['rouge2']. fmeasure)
-            rouge_scores['rougeL']. append(scores['rougeL'].fmeasure)
+            scores = scorer.score(ref, pred)
+            rouge_scores['rouge1'].append(scores['rouge1']. fmeasure)
+            rouge_scores['rouge2'].append(scores['rouge2'].fmeasure)
+            rouge_scores['rougeL'].append(scores['rougeL'].fmeasure)
         
         metrics['rouge1'] = np.mean(rouge_scores['rouge1'])
         metrics['rouge2'] = np.mean(rouge_scores['rouge2'])
         metrics['rougeL'] = np.mean(rouge_scores['rougeL'])
     except ImportError:
-        print("[WARN] rouge-score not installed. Skipping ROUGE.")
+        print("[WARN] rouge-score not installed.  Skipping ROUGE.")
         metrics['rouge1'] = metrics['rouge2'] = metrics['rougeL'] = 0.0
     
     # BLEU
@@ -43,7 +42,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         nltk.download('punkt', quiet=True)
         
         bleu_scores = []
-        smoothing = SmoothingFunction().method1
+        smoothing = SmoothingFunction(). method1
         for pred, ref in zip(predictions, references):
             pred_tokens = pred.split()
             ref_tokens = [ref.split()]
@@ -64,7 +63,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         
         meteor_scores = []
         for pred, ref in zip(predictions, references):
-            score = meteor_score([ref.split()], pred. split())
+            score = meteor_score([ref. split()], pred. split())
             meteor_scores. append(score)
         
         metrics['meteor'] = np.mean(meteor_scores)
@@ -76,7 +75,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
     try:
         from bert_score import score as bert_score
         P, R, F1 = bert_score(predictions, references, lang="en", verbose=False)
-        metrics['bertscore_precision'] = P.mean(). item()
+        metrics['bertscore_precision'] = P. mean(). item()
         metrics['bertscore_recall'] = R.mean().item()
         metrics['bertscore_f1'] = F1.mean().item()
     except ImportError:
@@ -112,14 +111,14 @@ def compute_diversity_score(responses: List[str]) -> float:
 
         return float(np.mean(similarities)) if similarities else 0.0
     except ImportError:
-        print("[WARN] sentence-transformers not installed.  Skipping Diversity Score.")
+        print("[WARN] sentence-transformers not installed. Skipping Diversity Score.")
         return 0.0
 
 
 def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     """
     Compliance Score using Gemini 2.0 Flash as LLM-as-a-Judge.
-    Free tier: 15 RPM, 1M TPM, 1500 RPD.
+    Free tier: 15 RPM, 1M TPM, 1500 RPD. 
     """
     # Check API key
     if not GEMINI_API_KEY:
@@ -132,11 +131,19 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         # Configure Gemini
         genai.configure(api_key=GEMINI_API_KEY)
         
-        # Initialize model
-        model = genai. GenerativeModel(JUDGE_MODEL)
+        # Initialize model with safety settings disabled
+        model = genai.GenerativeModel(
+            JUDGE_MODEL,
+            safety_settings={
+                "HARASSMENT": "BLOCK_NONE",
+                "HATE_SPEECH": "BLOCK_NONE",
+                "SEXUALLY_EXPLICIT": "BLOCK_NONE",
+                "DANGEROUS_CONTENT": "BLOCK_NONE",
+            }
+        )
         
         # Build prompt
-        prompt = f"""You are an expert software architecture evaluator. 
+        prompt = f"""You are an expert software architecture evaluator.  
 
         Given a model's generated architectural decision and the ground truth, rate how well the model's answer aligns with standard architectural patterns and the ground truth decision.
 
@@ -176,8 +183,28 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                     )
                 )
                 
+                # Check if response was blocked
+                if not response.candidates:
+                    print(f"[WARN] Gemini response blocked (no candidates)")
+                    return 0.0
+                
+                candidate = response.candidates[0]
+                
+                # Check finish reason
+                # 0=FINISH_REASON_UNSPECIFIED, 1=STOP (normal), 2=MAX_TOKENS, 3=SAFETY, 4=RECITATION, 5=OTHER
+                if candidate.finish_reason == 3:  # SAFETY
+                    print(f"[WARN] Gemini blocked response due to safety filters")
+                    return 0.0
+                elif candidate.finish_reason not in [1, 2]:  # Not STOP or MAX_TOKENS
+                    print(f"[WARN] Unexpected finish_reason: {candidate.finish_reason}")
+                    return 0.0
+                
                 # Extract score
-                score_text = response.text. strip()
+                if not response.text:
+                    print(f"[WARN] Empty response text")
+                    return 0.0
+                    
+                score_text = response.text.strip()
                 
                 # Parse score (handle various formats)
                 import re
@@ -192,7 +219,8 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                     return 0.0
                     
             except Exception as e:
-                if "429" in str(e) or "quota" in str(e). lower():
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg. lower() or "resource_exhausted" in error_msg. lower():
                     # Rate limit hit
                     if attempt < max_retries - 1:
                         print(f"[WARN] Rate limit hit, retrying in {retry_delay}s...  (attempt {attempt + 1}/{max_retries})")

@@ -8,7 +8,7 @@ from typing import Set
 def count_parameters(model):
     """Count total and trainable parameters in the model."""
     total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    trainable_params = sum(p. numel() for p in model. parameters() if p.requires_grad)
     return {
         "total_params_M": round(total_params / 1e6, 2),
         "trainable_params_M": round(trainable_params / 1e6, 2),
@@ -29,7 +29,7 @@ def extract_components(text: str) -> Set[str]:
     
     # Pattern 1: File names
     file_pattern = r'\b\w+\.(java|py|ts|tsx|jsx|js|xml|yaml|yml|json|properties|conf|kt|scala|rs|go|rb|hs|ex|elixir)\b'
-    files = re. findall(file_pattern, text, re.IGNORECASE)
+    files = re.findall(file_pattern, text, re.IGNORECASE)
     components.update(files)
     
     # Pattern 2: Class/Service names with architectural suffixes
@@ -102,8 +102,9 @@ def extract_components(text: str) -> Set[str]:
     components.update(repos)
     
     # Pattern for project/library names (e.g., "plutus-apps", "snake-yaml")
+    # FIX: Thay đổi từ ?: thành (? :.. .) để tránh lỗi regex
     project_pattern = r'\b[a-z]+-[a-z]+(? :-[a-z]+)*\b'
-    projects = re. findall(project_pattern, text)
+    projects = re.findall(project_pattern, text)
     # Filter out common false positives
     project_blacklist = {'open-source', 'well-known', 'up-to-date', 'user-friendly', 'real-time'}
     components.update([p for p in projects if p not in project_blacklist and len(p) > 5])

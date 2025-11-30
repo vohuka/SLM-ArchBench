@@ -52,6 +52,22 @@ $env:HF_TOKEN="your_huggingface_token_here"
 
 ---
 
+## Set Gemini API Key
+
+Get it from [Google AI Studio → Create API Key](https://aistudio.google.com/api-keys).
+
+### macOS / Linux
+```bash
+export GEMINI_API_KEY="your_gemini_api_key_here"
+```
+
+### Windows PowerShell
+```powershell
+$env:GEMINI_API_KEY="your_gemini_api_key_here"
+```
+
+---
+
 ## Run the Pipeline
 
 ```bash
@@ -62,6 +78,7 @@ Or run installation + execution together:
 ```bash
 pip install -r requirements.txt
 export HF_TOKEN="your_huggingface_token_here"
+export GEMINI_API_KEY="your_gemini_api_key_here"
 python pipeline.py
 ```
 
@@ -71,6 +88,7 @@ python pipeline.py
 
 1. Upload your project.
 2. Add `HF_TOKEN` in Environment Variables (with READ permission).
+3. Add `GEMINI_API_KEY` in Environment Variables.
 3. **Select GPU runtime** (required for FlashAttention).
 4. Run:
 ```bash

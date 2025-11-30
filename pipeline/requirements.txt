@@ -13,7 +13,7 @@ pandas
 huggingface_hub
 einops
 sentencepiece
-protobuf
+protobuf>=3.19.6,<4.24
 trl 
 sentence-transformers 
 rouge_score 
