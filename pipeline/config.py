@@ -25,7 +25,7 @@ MODEL_CANDIDATES = {
 # ============================================================
 
 DATASETS_CONFIG = [
-    {"name": "ArchAI-ADR", "path": "datasets/archAI-ADR.csv"},
+    {"name": "ArchAI-ADR", "path": "datasets/ArchAI-ADR.csv"},
 ]
 
 # ============================================================
@@ -48,27 +48,32 @@ LORA_CONFIG = {
 
 # Training Arguments
 TRAINING_ARGS = {
-    "num_train_epochs": 5,
+    "num_train_epochs": 10,           
     "per_device_train_batch_size": 2,
     "per_device_eval_batch_size": 2,
     "gradient_accumulation_steps": 4,
     "learning_rate": 2e-4,
-    "warmup_ratio": 0.03,
+    "warmup_ratio": 0.1,               
     "weight_decay": 0.01,
-    "logging_steps": 10,
-    "eval_steps": 50,
-    "save_steps": 200,
-    "save_total_limit": 2,
+    "logging_steps": 5,               
+    "eval_strategy": "epoch",          
+    "save_strategy": "epoch",          
+    "save_total_limit": 3,             
     "load_best_model_at_end": True,
+    "metric_for_best_model": "loss",
 }
 
 # Generation Configuration
 GENERATION_CONFIG = {
     "max_new_tokens": 256,
     "do_sample": True,
-    "temperature": 0.7,
-    "top_p": 0.9,
+    "temperature": 1.0,
+    "top_p": 0.92,
+    "top_k": 50,
     "num_return_sequences": 5,
+    "repetition_penalty": 1.15,
+    "no_repeat_ngram_size": 3,
+    "early_stopping": False 
 }
 
 # API Configuration

@@ -2,6 +2,7 @@
 Training loop logic.
 """
 import os
+import json
 import time
 import torch
 import pandas as pd
@@ -30,6 +31,33 @@ def train_and_evaluate_model(
     dataset_name: str, data_path: str
 ):
     """Train and evaluate a single model on a dataset."""
+    
+    # Setup paths
+    run_id = f"{dataset_name.lower().replace(' ', '_')}_{model_key}"
+    save_dir = os.path.join("models", run_id)
+    results_file = os.path.join("results", f"{run_id}_detailed.json")
+    
+    # Check if already completed
+    if os.path.exists(save_dir) and os.path.exists(results_file):
+        print(f"\n{'='*60}")
+        print(f"[SKIP] {model_key} on {dataset_name}")
+        print(f"       Already completed (found saved model)")
+        print(f"       Delete '{save_dir}' to retrain")
+        print(f"{'='*60}\n")
+        
+        # Load and return existing summary if available
+        summary_file = os.path.join("results", f"{run_id}_summary.json")
+        if os.path.exists(summary_file):
+            try:
+                with open(summary_file, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return None
+    
+    print(f"\n{'='*60}")
+    print(f"[START] Training {model_key} on {dataset_name}")
+    print(f"{'='*60}\n")
     
     if not os.path.exists(data_path):
         print(f"[WARN] File not found: {data_path}")
@@ -64,7 +92,6 @@ def train_and_evaluate_model(
     tokenized_val = val_ds.map(tokenize_function, batched=False)
 
     # Setup training
-    run_id = f"{dataset_name.lower().replace(' ', '_')}_{model_key}"
     output_dir = os.path.join("runs", run_id)
 
     training_args = TrainingArguments(
@@ -113,7 +140,6 @@ def train_and_evaluate_model(
     all_metrics = evaluate_all_metrics(model, tokenizer, val_df, run_id)
 
     # Save model
-    save_dir = os.path.join("models", run_id)
     os.makedirs(save_dir, exist_ok=True)
     model.save_pretrained(save_dir)
     tokenizer.save_pretrained(save_dir)
@@ -134,5 +160,13 @@ def train_and_evaluate_model(
     result_record.update(param_info)
     result_record.update(eval_results)
     result_record.update(all_metrics)
+    
+    # Save summary for resume functionality
+    summary_file = os.path.join("results", f"{run_id}_summary.json")
+    with open(summary_file, 'w') as f:
+        json.dump(result_record, f, indent=2)
+    print(f"[INFO] Saved summary to {summary_file}")
+    
+    print(f"\n[SUCCESS] Completed {model_key} on {dataset_name}\n")
     
     return result_record
