@@ -9,7 +9,7 @@ from config import JUDGE_MODEL, GEMINI_API_KEY
 
 
 # ============================================================
-# NLG METRICS (giữ nguyên)
+# NLG METRICS
 # ============================================================
 
 def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[str, float]:
@@ -19,12 +19,12 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
     # ROUGE
     try:
         from rouge_score import rouge_scorer
-        scorer = rouge_scorer. RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+        scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
         rouge_scores = {'rouge1': [], 'rouge2': [], 'rougeL': []}
         
         for pred, ref in zip(predictions, references):
             scores = scorer.score(ref, pred)
-            rouge_scores['rouge1'].append(scores['rouge1']. fmeasure)
+            rouge_scores['rouge1'].append(scores['rouge1'].fmeasure)
             rouge_scores['rouge2'].append(scores['rouge2'].fmeasure)
             rouge_scores['rougeL'].append(scores['rougeL'].fmeasure)
         
@@ -42,7 +42,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         nltk.download('punkt', quiet=True)
         
         bleu_scores = []
-        smoothing = SmoothingFunction(). method1
+        smoothing = SmoothingFunction().method1
         for pred, ref in zip(predictions, references):
             pred_tokens = pred.split()
             ref_tokens = [ref.split()]
@@ -63,8 +63,8 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
         
         meteor_scores = []
         for pred, ref in zip(predictions, references):
-            score = meteor_score([ref. split()], pred. split())
-            meteor_scores. append(score)
+            score = meteor_score([ref.split()], pred.split())
+            meteor_scores.append(score)
         
         metrics['meteor'] = np.mean(meteor_scores)
     except Exception as e:
@@ -75,7 +75,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[s
     try:
         from bert_score import score as bert_score
         P, R, F1 = bert_score(predictions, references, lang="en", verbose=False)
-        metrics['bertscore_precision'] = P. mean(). item()
+        metrics['bertscore_precision'] = P.mean().item()
         metrics['bertscore_recall'] = R.mean().item()
         metrics['bertscore_f1'] = F1.mean().item()
     except ImportError:
@@ -220,7 +220,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                     
             except Exception as e:
                 error_msg = str(e)
-                if "429" in error_msg or "quota" in error_msg. lower() or "resource_exhausted" in error_msg. lower():
+                if "429" in error_msg or "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
                     # Rate limit hit
                     if attempt < max_retries - 1:
                         print(f"[WARN] Rate limit hit, retrying in {retry_delay}s...  (attempt {attempt + 1}/{max_retries})")

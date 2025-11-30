@@ -8,7 +8,7 @@ from typing import Set
 def count_parameters(model):
     """Count total and trainable parameters in the model."""
     total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p. numel() for p in model. parameters() if p.requires_grad)
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return {
         "total_params_M": round(total_params / 1e6, 2),
         "trainable_params_M": round(trainable_params / 1e6, 2),
@@ -34,7 +34,7 @@ def extract_components(text: str) -> Set[str]:
     
     # Pattern 2: Class/Service names with architectural suffixes
     class_pattern = r'\b[A-Z][a-zA-Z0-9]*(?:Service|Controller|Repository|Model|Manager|Handler|Provider|Factory|Builder|Adapter|Facade|Strategy|Component|Module|Constraint|Interval|Config|Validator)\b'
-    classes = re. findall(class_pattern, text)
+    classes = re.findall(class_pattern, text)
     components.update(classes)
     
     # Pattern 3: Package/Module names (e.g., com.example.payment)
@@ -44,7 +44,7 @@ def extract_components(text: str) -> Set[str]:
     
     # Pattern 4: Architecture layer keywords
     layer_keywords = r'\b(controller|service|repository|model|view|database|api|frontend|backend|middleware|gateway|proxy|cache|queue|ledger|blockchain|datatype|constraint|library)\b'
-    layers = re. findall(layer_keywords, text, re.IGNORECASE)
+    layers = re.findall(layer_keywords, text, re.IGNORECASE)
     components.update([l.lower() for l in layers])
     
     # ============================================================
@@ -88,7 +88,7 @@ def extract_components(text: str) -> Set[str]:
     # Case-insensitive matching with word boundaries
     for tech in tech_stack:
         # Use word boundary to avoid partial matches
-        pattern = r'\b' + re. escape(tech) + r'\b'
+        pattern = r'\b' + re.escape(tech) + r'\b'
         if re.search(pattern, text, re.IGNORECASE):
             components.add(tech)
     
@@ -102,7 +102,6 @@ def extract_components(text: str) -> Set[str]:
     components.update(repos)
     
     # Pattern for project/library names (e.g., "plutus-apps", "snake-yaml")
-    # FIX: Thay đổi từ ?: thành (? :.. .) để tránh lỗi regex
     project_pattern = r'\b[a-z]+-[a-z]+(? :-[a-z]+)*\b'
     projects = re.findall(project_pattern, text)
     # Filter out common false positives
@@ -152,7 +151,7 @@ def extract_components(text: str) -> Set[str]:
             len(word) > 3 and  # Avoid short acronyms
             word not in components and  # Avoid duplicates
             (text.count(word) >= 2 or  # Appears multiple times
-             any(keyword in text. lower() for keyword in ['system', 'service', 'platform', 'framework', 'tool', 'infrastructure']))):
+             any(keyword in text.lower() for keyword in ['system', 'service', 'platform', 'framework', 'tool', 'infrastructure']))):
             components.add(word)
     
     return components
