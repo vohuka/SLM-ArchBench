@@ -12,12 +12,12 @@ MODEL_CANDIDATES = {
     "llama-3.2-3b": "meta-llama/Llama-3.2-3B-Instruct",
     "phi-3-mini": "microsoft/Phi-3-mini-4k-instruct",
     "phi-3-small": "microsoft/Phi-3-small-8k-instruct",
-    "olmo-2-1b": "allenai/OLMo-2-0425-1B-SFT",
-    "olmo-2-7b": "allenai/OLMo-2-1124-7B-SFT",
+    "olmo-2-1b": "allenai/OLMo-2-0425-1B-Instruct",
+    "olmo-2-7b": "allenai/OLMo-2-1124-7B-Instruct",
     "qwen2.5-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
     "gemma-3-1b": "google/gemma-3-1b-it",
-    "vaultgemma-1b": "google/vaultgemma-1b",
-    "mistral-7b-v0.3": "mistralai/Mistral-7B-v0.3",
+    "smollm2-1.7b": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "mistral-7b-v0.3": "mistralai/Mistral-7B-Instruct-v0.3",
 }
 
 # ============================================================
