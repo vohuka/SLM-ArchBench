@@ -53,7 +53,8 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str) ->
                 top_p=GENERATION_CONFIG["top_p"],
                 num_return_sequences=GENERATION_CONFIG["num_return_sequences"],
                 eos_token_id=tokenizer.eos_token_id,
-                pad_token_id=tokenizer.pad_token_id
+                pad_token_id=tokenizer.pad_token_id,
+                use_cache=False
             )
         inference_time = time.time() - start_time
         inference_times.append(inference_time)
