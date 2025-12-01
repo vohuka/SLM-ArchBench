@@ -61,6 +61,7 @@ TRAINING_ARGS = {
     "save_total_limit": 3,             
     "load_best_model_at_end": True,
     "metric_for_best_model": "loss",
+    "use_cache":  False
 }
 
 # Generation Configuration

@@ -14,7 +14,13 @@ from models import build_tokenize_function
 from utils import count_parameters
 from evaluation import evaluate_all_metrics
 from preprocessing import preprocess_archai_adr
+from transformers.cache_utils import DynamicCache
 
+if not hasattr(DynamicCache, 'get_usable_length'):
+    def get_usable_length(self, layer_idx: int = 0, seq_length: int = None):
+        """Compatibility method for Phi-3"""
+        return self.get_seq_length(layer_idx)
+    DynamicCache.get_usable_length = get_usable_length
 
 def preprocess_by_name(dataset_name: str, df: pd.DataFrame) -> pd.DataFrame:
     """Dispatch preprocessing by dataset name."""
