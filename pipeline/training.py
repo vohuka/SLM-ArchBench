@@ -22,6 +22,16 @@ if not hasattr(DynamicCache, 'get_usable_length'):
         return self.get_seq_length(layer_idx)
     DynamicCache.get_usable_length = get_usable_length
 
+if not hasattr(DynamicCache, 'seen_tokens'):
+    # Monkey patch the __init__ method to add seen_tokens
+    original_init = DynamicCache.__init__
+    
+    def patched_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        self.seen_tokens = 0  # Initialize seen_tokens
+    
+    DynamicCache.__init__ = patched_init
+
 def preprocess_by_name(dataset_name: str, df: pd.DataFrame) -> pd.DataFrame:
     """Dispatch preprocessing by dataset name."""
     name = dataset_name.lower().strip()
