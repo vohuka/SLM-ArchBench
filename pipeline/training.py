@@ -1,5 +1,6 @@
 """
-Training loop logic.
+Training loop logic. 
+Supports three modes: zero_shot, few_shot, fine_tune
 """
 import os
 import json
@@ -12,15 +13,15 @@ from transformers import Trainer, TrainingArguments, DataCollatorForLanguageMode
 from config import TRAINING_ARGS, TEST_SIZE, RANDOM_SEED
 from models import build_tokenize_function
 from utils import count_parameters
-from evaluation import evaluate_all_metrics
+from evaluation import evaluate_all_metrics, get_mode_prefix, get_results_dir
 from preprocessing import preprocess_archai_adr
-from transformers.cache_utils import DynamicCache
+from transformers. cache_utils import DynamicCache
 
 if not hasattr(DynamicCache, 'get_usable_length'):
     def get_usable_length(self, layer_idx: int = 0, seq_length: int = None):
         """Compatibility method for Phi-3"""
-        return self.get_seq_length(layer_idx)
-    DynamicCache.get_usable_length = get_usable_length
+        return self. get_seq_length(layer_idx)
+    DynamicCache. get_usable_length = get_usable_length
 
 if not hasattr(DynamicCache, 'seen_tokens'):
     # Monkey patch the __init__ method to add seen_tokens
@@ -32,9 +33,10 @@ if not hasattr(DynamicCache, 'seen_tokens'):
     
     DynamicCache.__init__ = patched_init
 
+
 def preprocess_by_name(dataset_name: str, df: pd.DataFrame) -> pd.DataFrame:
     """Dispatch preprocessing by dataset name."""
-    name = dataset_name.lower().strip()
+    name = dataset_name.lower(). strip()
     if name == "archai-adr":
         print("[INFO] Using preprocessing for ArchAI-ADR dataset.")
         return preprocess_archai_adr(df)
@@ -42,27 +44,100 @@ def preprocess_by_name(dataset_name: str, df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Unknown dataset name: {dataset_name}")
 
 
+def evaluate_only(
+    model, tokenizer, model_key: str, model_id: str,
+    dataset_name: str, train_df: pd.DataFrame, val_df: pd.DataFrame,
+    mode: str
+) -> dict:
+    """
+    Evaluate model without training (for zero_shot and few_shot modes). 
+    """
+    run_id = f"{dataset_name. lower(). replace(' ', '_')}_{model_key}"
+    mode_prefix = get_mode_prefix(mode)
+    results_dir = get_results_dir(model_key)
+    
+    # Check if already completed
+    results_file = os.path. join(results_dir, f"{mode_prefix}_{run_id}_detailed.json")
+    summary_file = os. path.join(results_dir, f"{mode_prefix}_{run_id}_summary.json")
+    
+    if os. path.exists(results_file) and os.path.exists(summary_file):
+        print(f"\n{'='*60}")
+        print(f"[SKIP] {mode_prefix} - {model_key} on {dataset_name}")
+        print(f"       Already completed (found saved results)")
+        print(f"       Delete '{results_file}' to re-evaluate")
+        print(f"{'='*60}\n")
+        
+        try:
+            with open(summary_file, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+        return None
+    
+    print(f"\n{'='*60}")
+    print(f"[START] {mode_prefix. upper()} Evaluation: {model_key} on {dataset_name}")
+    print(f"{'='*60}\n")
+    
+    # Evaluate
+    print(f"[INFO] Evaluating all metrics...  (mode={mode})")
+    all_metrics = evaluate_all_metrics(
+        model, tokenizer, val_df, run_id,
+        model_key=model_key,
+        support_df=train_df, 
+        mode=mode
+    )
+    
+    # Compile results
+    param_info = count_parameters(model)
+    
+    result_record = {
+        "eval_mode": mode,
+        "model_key": model_key,
+        "model_id": model_id,
+        "dataset_name": dataset_name,
+        "num_train_samples": len(train_df),
+        "num_test_samples": len(val_df),
+        "training_time_sec": 0.0,  # No training for zero/few shot
+        "final_train_loss": None,
+    }
+    result_record.update(param_info)
+    result_record.update(all_metrics)
+    
+    # Save summary
+    with open(summary_file, 'w') as f:
+        json.dump(result_record, f, indent=2)
+    print(f"[INFO] Saved summary to {summary_file}")
+    
+    print(f"\n[SUCCESS] Completed {mode_prefix} evaluation: {model_key} on {dataset_name}\n")
+    
+    return result_record
+
+
 def train_and_evaluate_model(
     model, tokenizer, model_key: str, model_id: str,
-    dataset_name: str, data_path: str
-):
-    """Train and evaluate a single model on a dataset."""
+    dataset_name: str, train_df: pd. DataFrame, val_df: pd.DataFrame,
+    tokenized_train, tokenized_val
+) -> dict:
+    """Train and evaluate a single model on a dataset (fine_tune mode only)."""
+    
+    mode = "fine_tune"
+    mode_prefix = get_mode_prefix(mode)
     
     # Setup paths
     run_id = f"{dataset_name.lower().replace(' ', '_')}_{model_key}"
-    save_dir = os.path.join("models", run_id)
-    results_file = os.path.join("results", f"{run_id}_detailed.json")
+    save_dir = os. path.join("models", run_id)
+    results_dir = get_results_dir(model_key)
+    results_file = os.path. join(results_dir, f"{mode_prefix}_{run_id}_detailed.json")
+    summary_file = os. path.join(results_dir, f"{mode_prefix}_{run_id}_summary.json")
     
     # Check if already completed
-    if os.path.exists(save_dir) and os.path.exists(results_file):
+    if os.path. exists(save_dir) and os.path.exists(results_file):
         print(f"\n{'='*60}")
-        print(f"[SKIP] {model_key} on {dataset_name}")
+        print(f"[SKIP] {mode_prefix} - {model_key} on {dataset_name}")
         print(f"       Already completed (found saved model)")
         print(f"       Delete '{save_dir}' to retrain")
         print(f"{'='*60}\n")
         
-        # Load and return existing summary if available
-        summary_file = os.path.join("results", f"{run_id}_summary.json")
         if os.path.exists(summary_file):
             try:
                 with open(summary_file, 'r') as f:
@@ -72,47 +147,15 @@ def train_and_evaluate_model(
         return None
     
     print(f"\n{'='*60}")
-    print(f"[START] Training {model_key} on {dataset_name}")
+    print(f"[START] FINE-TUNING: {model_key} on {dataset_name}")
     print(f"{'='*60}\n")
     
-    if not os.path.exists(data_path):
-        print(f"[WARN] File not found: {data_path}")
-        return None
-
-    df_raw = pd.read_csv(data_path)
-    print(f"[INFO] Loaded dataset from {data_path}")
-    print(f"[INFO] Columns: {df_raw.columns.tolist()}")
-    print(f"[INFO] Samples: {len(df_raw)}")
-
-    try:
-        df_processed = preprocess_by_name(dataset_name, df_raw)
-    except Exception as e:
-        print(f"[ERROR] Preprocessing failed: {e}")
-        return None
-
-    if len(df_processed) == 0:
-        print(f"[WARN] Empty dataset, skipping.")
-        return None
-
-    # Split data
-    train_df, val_df = train_test_split(
-        df_processed, test_size=TEST_SIZE, random_state=RANDOM_SEED
-    )
-
-    train_ds = HFDataset.from_pandas(train_df.reset_index(drop=True))
-    val_ds = HFDataset.from_pandas(val_df.reset_index(drop=True))
-
-    # Tokenize
-    tokenize_function = build_tokenize_function(tokenizer)
-    tokenized_train = train_ds.map(tokenize_function, batched=False)
-    tokenized_val = val_ds.map(tokenize_function, batched=False)
-
     # Setup training
-    output_dir = os.path.join("runs", run_id)
+    output_dir = os. path.join("runs", run_id)
 
     training_args = TrainingArguments(
         output_dir=output_dir,
-        logging_dir=os.path.join(output_dir, "logs"),
+        logging_dir=os. path.join(output_dir, "logs"),
         report_to="tensorboard",
         bf16=torch.cuda.is_available(),
         fp16=not torch.cuda.is_available() or not torch.cuda.get_device_capability()[0] >= 8,
@@ -131,7 +174,7 @@ def train_and_evaluate_model(
 
     # Train
     print(f"[INFO] Training {model_key} on {dataset_name}...")
-    train_start_time = time.time()
+    train_start_time = time. time()
     trainer.train()
     train_time = time.time() - train_start_time
     print(f"[INFO] Training finished in {train_time:.2f} sec.")
@@ -145,19 +188,24 @@ def train_and_evaluate_model(
     eval_results = trainer.evaluate()
     
     try:
-        perplexity = torch.exp(torch.tensor(eval_results["eval_loss"])).item()
+        perplexity = torch.exp(torch.tensor(eval_results["eval_loss"])). item()
     except:
         perplexity = float('inf')
     
     eval_results["perplexity"] = perplexity
 
     # Research metrics
-    print(f"[INFO] Evaluating all metrics...")
-    all_metrics = evaluate_all_metrics(model, tokenizer, val_df, run_id)
+    print(f"[INFO] Evaluating all metrics...  (mode={mode})")
+    all_metrics = evaluate_all_metrics(
+        model, tokenizer, val_df, run_id,
+        model_key=model_key,
+        support_df=train_df, 
+        mode=mode
+    )
 
     # Save model
     os.makedirs(save_dir, exist_ok=True)
-    model.save_pretrained(save_dir)
+    model. save_pretrained(save_dir)
     tokenizer.save_pretrained(save_dir)
     print(f"[INFO] Saved model to {save_dir}")
 
@@ -165,6 +213,7 @@ def train_and_evaluate_model(
     param_info = count_parameters(model)
     
     result_record = {
+        "eval_mode": mode,
         "model_key": model_key,
         "model_id": model_id,
         "dataset_name": dataset_name,
@@ -177,12 +226,85 @@ def train_and_evaluate_model(
     result_record.update(eval_results)
     result_record.update(all_metrics)
     
-    # Save summary for resume functionality
-    summary_file = os.path.join("results", f"{run_id}_summary.json")
+    # Save summary
     with open(summary_file, 'w') as f:
         json.dump(result_record, f, indent=2)
     print(f"[INFO] Saved summary to {summary_file}")
     
-    print(f"\n[SUCCESS] Completed {model_key} on {dataset_name}\n")
+    print(f"\n[SUCCESS] Completed fine-tuning: {model_key} on {dataset_name}\n")
     
     return result_record
+
+
+def run_all_modes_for_model(
+    model, tokenizer, model_key: str, model_id: str,
+    dataset_name: str, data_path: str, modes: list
+) -> list:
+    """
+    Run all evaluation modes for a single model.
+    Modes: zero_shot, few_shot run without training. 
+    fine_tune mode trains then evaluates.
+    """
+    results = []
+    
+    if not os.path.exists(data_path):
+        print(f"[WARN] File not found: {data_path}")
+        return results
+
+    df_raw = pd.read_csv(data_path)
+    print(f"[INFO] Loaded dataset from {data_path}")
+    print(f"[INFO] Columns: {df_raw.columns.tolist()}")
+    print(f"[INFO] Samples: {len(df_raw)}")
+
+    try:
+        from preprocessing import preprocess_archai_adr
+        df_processed = preprocess_by_name(dataset_name, df_raw)
+    except Exception as e:
+        print(f"[ERROR] Preprocessing failed: {e}")
+        return results
+
+    if len(df_processed) == 0:
+        print(f"[WARN] Empty dataset, skipping.")
+        return results
+
+    # Split data
+    train_df, val_df = train_test_split(
+        df_processed, test_size=TEST_SIZE, random_state=RANDOM_SEED
+    )
+    train_df = train_df.reset_index(drop=True)
+    val_df = val_df. reset_index(drop=True)
+
+    # Tokenize (needed for fine_tune mode)
+    train_ds = HFDataset. from_pandas(train_df)
+    val_ds = HFDataset.from_pandas(val_df)
+    tokenize_function = build_tokenize_function(tokenizer)
+    tokenized_train = train_ds.map(tokenize_function, batched=False)
+    tokenized_val = val_ds.map(tokenize_function, batched=False)
+
+    # Run each mode
+    for mode in modes:
+        print("\n" + "=" * 80)
+        print(f"### MODE: {mode. upper()} | MODEL: {model_key} | DATASET: {dataset_name}")
+        print("=" * 80)
+        
+        if mode in ["zero_shot", "few_shot"]:
+            # No training, just evaluation
+            result = evaluate_only(
+                model, tokenizer, model_key, model_id,
+                dataset_name, train_df, val_df, mode
+            )
+        elif mode == "fine_tune":
+            # Train then evaluate
+            result = train_and_evaluate_model(
+                model, tokenizer, model_key, model_id,
+                dataset_name, train_df, val_df,
+                tokenized_train, tokenized_val
+            )
+        else:
+            print(f"[WARN] Unknown mode: {mode}, skipping.")
+            continue
+        
+        if result:
+            results.append(result)
+    
+    return results

@@ -1,98 +1,161 @@
 """
 All metric computation functions: NLG + Research metrics.
+Improved: corpus-level BLEU (sacrebleu), robust METEOR handling,
+batched BERTScore with device selection, and better fallbacks.
 """
 import numpy as np
 import time
-from typing import List, Dict
+import torch
+from typing import List, Dict, Iterable
+
 from utils import extract_components
 from config import JUDGE_MODEL, GEMINI_API_KEY
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+# Safety: optional imports are inside functions with graceful fallbacks
 
 
+def _batch_iter(items: List[str], batch_size: int) -> Iterable[List[str]]:
+    for i in range(0, len(items), batch_size):
+        yield items[i:i + batch_size]
 
-# ============================================================
-# NLG METRICS
-# ============================================================
 
-def compute_nlg_metrics(predictions: List[str], references: List[str]) -> Dict[str, float]:
-    """Compute ROUGE, BLEU, METEOR, BERTScore."""
+def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batch_size: int = 64) -> Dict[str, float]:
+    """Compute ROUGE, BLEU, METEOR, BERTScore. Returns a dict of metrics."""
     metrics = {}
-    
-    # ROUGE
+
+    # Basic checks
+    if len(predictions) != len(references):
+        print("[WARN] compute_nlg_metrics: predictions and references length mismatch.")
+    if len(predictions) == 0:
+        print("[WARN] compute_nlg_metrics: empty predictions. Returning zeros.")
+        return {
+            'rouge1': 0.0, 'rouge2': 0.0, 'rougeL': 0.0,
+            'bleu': 0.0, 'meteor': 0.0,
+            'bertscore_precision': 0.0, 'bertscore_recall': 0.0, 'bertscore_f1': 0.0
+        }
+
+    # -------------------------
+    # ROUGE (using rouge_score)
+    # -------------------------
     try:
         from rouge_score import rouge_scorer
         scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
-        rouge_scores = {'rouge1': [], 'rouge2': [], 'rougeL': []}
-        
+        rouge1_scores = []
+        rouge2_scores = []
+        rougeL_scores = []
+
         for pred, ref in zip(predictions, references):
             scores = scorer.score(ref, pred)
-            rouge_scores['rouge1'].append(scores['rouge1'].fmeasure)
-            rouge_scores['rouge2'].append(scores['rouge2'].fmeasure)
-            rouge_scores['rougeL'].append(scores['rougeL'].fmeasure)
-        
-        metrics['rouge1'] = np.mean(rouge_scores['rouge1'])
-        metrics['rouge2'] = np.mean(rouge_scores['rouge2'])
-        metrics['rougeL'] = np.mean(rouge_scores['rougeL'])
+            rouge1_scores.append(scores['rouge1'].fmeasure)
+            rouge2_scores.append(scores['rouge2'].fmeasure)
+            rougeL_scores.append(scores['rougeL'].fmeasure)
+
+        metrics['rouge1'] = float(np.mean(rouge1_scores)) if rouge1_scores else 0.0
+        metrics['rouge2'] = float(np.mean(rouge2_scores)) if rouge2_scores else 0.0
+        metrics['rougeL'] = float(np.mean(rougeL_scores)) if rougeL_scores else 0.0
     except ImportError:
-        print("[WARN] rouge-score not installed.Skipping ROUGE.")
+        print("[WARN] rouge-score not installed. Skipping ROUGE.")
         metrics['rouge1'] = metrics['rouge2'] = metrics['rougeL'] = 0.0
-    
+
+    # -------------------------
     # BLEU
+    # -------------------------
     try:
-        from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-        import nltk
-        nltk.download('punkt', quiet=True)
-        
-        bleu_scores = []
-        smoothing = SmoothingFunction().method1
-        for pred, ref in zip(predictions, references):
-            pred_tokens = pred.split()
-            ref_tokens = [ref.split()]
-            score = sentence_bleu(ref_tokens, pred_tokens, smoothing_function=smoothing)
-            bleu_scores.append(score)
-        
-        metrics['bleu'] = np.mean(bleu_scores)
-    except ImportError:
-        print("[WARN] nltk not installed.Skipping BLEU.")
-        metrics['bleu'] = 0.0
-    
-    # METEOR
+        import sacrebleu
+        # sacrebleu expects references as list of reference lists
+        # references_list shape: list of lists, each inner list is references for one sample
+        refs_for_sacre = [[r] for r in references]  # sacrebleu.corpus_bleu expects list of list-of-refs by reference-stream
+        # sacrebleu.corpus_bleu takes predictions and list_of_references where list_of_references is list of reference streams
+        # We convert to the required form: list of reference strings per reference-stream
+        # Simpler: pass [references] as reference streams
+        bleu_score = sacrebleu.corpus_bleu(predictions, [references])
+        metrics['bleu'] = float(bleu_score.score / 100.0)  # convert 0-100 -> 0-1 scale for consistency
+    except Exception as e:
+        # Fallback to nltk sentence_bleu with smoothing
+        try:
+            from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+            smoothing = SmoothingFunction().method1
+            bleu_scores = []
+            for pred, ref in zip(predictions, references):
+                pred_tokens = pred.split()
+                ref_tokens = [ref.split()]
+                score = sentence_bleu(ref_tokens, pred_tokens, smoothing_function=smoothing)
+                bleu_scores.append(score)
+            metrics['bleu'] = float(np.mean(bleu_scores)) if bleu_scores else 0.0
+            print("[WARN] sacrebleu not available or failed, used nltk sentence_bleu fallback.")
+        except ImportError:
+            print("[WARN] nltk not installed. Skipping BLEU.")
+            metrics['bleu'] = 0.0
+
+    # -------------------------
+    # METEOR (nltk)
+    # -------------------------
     try:
         from nltk.translate.meteor_score import meteor_score
         import nltk
-        nltk.download('wordnet', quiet=True)
-        nltk.download('omw-1.4', quiet=True)
-        
+        # ensure resources
+        try:
+            nltk.data.find('corpora/wordnet')
+        except LookupError:
+            nltk.download('wordnet', quiet=True)
+            nltk.download('omw-1.4', quiet=True)
+
         meteor_scores = []
         for pred, ref in zip(predictions, references):
-            score = meteor_score([ref.split()], pred.split())
+            # meteor_score expects reference list (strings) and hypothesis string
+            score = meteor_score([ref], pred)
             meteor_scores.append(score)
-        
-        metrics['meteor'] = np.mean(meteor_scores)
-    except Exception as e:
-        print(f"[WARN] METEOR scoring failed: {e}.Skipping.")
+        metrics['meteor'] = float(np.mean(meteor_scores)) if meteor_scores else 0.0
+    except ImportError:
+        print("[WARN] nltk or METEOR not available. Skipping METEOR.")
         metrics['meteor'] = 0.0
-    
-    # BERTScore
+    except Exception as e:
+        print(f"[WARN] METEOR scoring failed: {e}. Skipping METEOR.")
+        metrics['meteor'] = 0.0
+
+    # -------------------------
+    # BERTScore (batched, device-aware)
+    # -------------------------
     try:
         from bert_score import score as bert_score
-        P, R, F1 = bert_score(predictions, references, lang="en", verbose=False)
-        metrics['bertscore_precision'] = P.mean().item()
-        metrics['bertscore_recall'] = R.mean().item()
-        metrics['bertscore_f1'] = F1.mean().item()
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        P_vals = []
+        R_vals = []
+        F_vals = []
+        # Run in batches to avoid OOM
+        for pred_batch, ref_batch in zip(_batch_iter(predictions, bert_batch_size),
+                                         _batch_iter(references, bert_batch_size)):
+            P, R, F1 = bert_score(list(pred_batch), list(ref_batch),
+                                  lang='en',
+                                  device=device,
+                                  batch_size=min(bert_batch_size, 64),
+                                  rescale_with_baseline=True)
+            # bert_score returns tensors; convert to numpy and extend
+            P_vals.extend(P.detach().cpu().tolist())
+            R_vals.extend(R.detach().cpu().tolist())
+            F_vals.extend(F1.detach().cpu().tolist())
+
+        # If the last batch sizes differ, ensure lengths align
+        n = min(len(predictions), len(P_vals))
+        if n == 0:
+            metrics['bertscore_precision'] = metrics['bertscore_recall'] = metrics['bertscore_f1'] = 0.0
+        else:
+            metrics['bertscore_precision'] = float(np.mean(P_vals[:n]))
+            metrics['bertscore_recall'] = float(np.mean(R_vals[:n]))
+            metrics['bertscore_f1'] = float(np.mean(F_vals[:n]))
     except ImportError:
-        print("[WARN] bert-score not installed.Skipping BERTScore.")
-        metrics['bertscore_precision'] = 0.0
-        metrics['bertscore_recall'] = 0.0
-        metrics['bertscore_f1'] = 0.0
-    
+        print("[WARN] bert-score not installed. Skipping BERTScore.")
+        metrics['bertscore_precision'] = metrics['bertscore_recall'] = metrics['bertscore_f1'] = 0.0
+    except Exception as e:
+        print(f"[WARN] BERTScore computation failed: {e}. Skipping BERTScore.")
+        metrics['bertscore_precision'] = metrics['bertscore_recall'] = metrics['bertscore_f1'] = 0.0
+
     return metrics
 
 
 # ============================================================
 # RESEARCH METRICS
 # ============================================================
-
 def compute_diversity_score(responses: List[str]) -> float:
     """Diversity Score using Sentence-BERT."""
     if len(responses) < 2:
@@ -134,11 +197,10 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         model = genai.GenerativeModel(
             JUDGE_MODEL,
             safety_settings={
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
+                # local import of enums to avoid top-level import issues
+                getattr(genai.types, "HarmCategory", {}).HARM_CATEGORY_HARASSMENT if hasattr(genai, "types") else None:
+                None
+            } if False else {}
         )
         
         prompt = f"""You are an expert software architecture evaluator.
@@ -253,6 +315,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     except Exception as e:
         print(f"[ERROR] Compliance scoring with Gemini failed: {e}")
         return 0.0
+
 
 def compute_ripple_effect_recall(model_answer: str, ground_truth: str) -> Dict[str, float]:
     """Ripple Effect Recall with improved regex-based component extraction."""

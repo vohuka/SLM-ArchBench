@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+
+---
+## [3.0] - 2025-12-05
+
+### Highlights
+- Added support for **three evaluation modes**: Zero-shot, Few-shot, and Fine-tuning, all running sequentially in a single pipeline execution. 
+- Restructured output folder organization: results are now grouped by model name for better organization.
+- Added mode-specific prefixes to output files (`zeroshot_`, `fewshot_`, `finetuned_`) for clear identification.
+- Optimized evaluation pipeline to skip fine-tuning when running zero-shot or few-shot modes. 
+
+### Details
+
+#### New Features
+- **Multi-mode evaluation pipeline**: The pipeline now automatically runs all three evaluation modes sequentially:
+  1. `zero_shot`: Evaluates the pre-trained model without any training or examples
+  2. `few_shot`: Evaluates with K examples prepended to each prompt (configurable via `FEW_SHOT_K`)
+  3. `fine_tune`: Performs LoRA fine-tuning before evaluation
+- **Smart mode handling**: Zero-shot and few-shot modes skip the training phase entirely, saving computational resources. 
+- **Resume capability**: Each mode checks for existing results and skips if already completed.
+
+#### Output Structure Changes
+- Results are now organized by model in subdirectories:
+
 ---
 
 ## [2.1] - 2025-12-04

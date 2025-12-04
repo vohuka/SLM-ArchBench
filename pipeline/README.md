@@ -3,8 +3,8 @@
 ## Prerequisites
 
 * Python 3.10+
-* NVIDIA GPU (recommended for fast finetuning)
-* A valid Gemini API key for validation
+* NVIDIA GPU (recommended for fast fine-tuning)
+* A valid Gemini API key for LLM-as-a-Judge evaluation
 * A valid Hugging Face token with READ permission
 
 ---
@@ -19,34 +19,79 @@ pip install -r requirements.txt
 
 ---
 
-## Set Hugging Face Token
+## Environment Variables
 
-**Your token must have READ permission.** Get it from [Hugging Face Settings → Access Tokens](https://huggingface.co/settings/tokens).
+### Required Variables
 
-### macOS / Linux
+#### 1. Hugging Face Token
+
+**Your token must have READ permission. ** Get it from [Hugging Face Settings → Access Tokens](https://huggingface.co/settings/tokens).
+
+| OS | Command |
+|---|---|
+| macOS / Linux | `export HF_TOKEN="your_huggingface_token_here"` |
+| Windows PowerShell | `$env:HF_TOKEN="your_huggingface_token_here"` |
+
+#### 2.  Gemini API Key
+
+Get it from [Google AI Studio → Create API Key](https://aistudio.google.com/apikey).
+
+| OS | Command |
+|---|---|
+| macOS / Linux | `export GEMINI_API_KEY="your_gemini_api_key_here"` |
+| Windows PowerShell | `$env:GEMINI_API_KEY="your_gemini_api_key_here"` |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `FEW_SHOT_K` | Number of examples for few-shot evaluation | `3` |
+
+**Example:**
 ```bash
-export HF_TOKEN="your_huggingface_token_here"
-```
+# macOS / Linux
+export FEW_SHOT_K=5
 
-### Windows PowerShell
-```powershell
-$env:HF_TOKEN="your_huggingface_token_here"
+# Windows PowerShell
+$env:FEW_SHOT_K=5
 ```
 
 ---
 
-## Set Gemini API Key
+## Configuration
 
-Get it from [Google AI Studio → Create API Key](https://aistudio.google.com/api-keys).
+You can customize the pipeline by editing `config.py`:
 
-### macOS / Linux
-```bash
-export GEMINI_API_KEY="your_gemini_api_key_here"
+### Evaluation Modes
+
+```python
+# Run all 3 modes sequentially (default)
+EVAL_MODES = ["zero_shot", "few_shot", "fine_tune"]
+
+# Run only specific modes
+EVAL_MODES = ["zero_shot"]  # Zero-shot only
+EVAL_MODES = ["fine_tune"]  # Fine-tuning only
 ```
 
-### Windows PowerShell
-```powershell
-$env:GEMINI_API_KEY="your_gemini_api_key_here"
+### Model Selection
+
+```python
+MODEL_CANDIDATES = {
+    "llama-3.2-1b": "meta-llama/Llama-3. 2-1B-Instruct",
+    "phi-3-mini": "microsoft/Phi-3-mini-4k-instruct",
+    # Add or remove models as needed
+}
+```
+
+### Training Hyperparameters
+
+```python
+TRAINING_ARGS = {
+    "num_train_epochs": 10,
+    "per_device_train_batch_size": 2,
+    "learning_rate": 2e-4,
+    # ...  see config.py for full options
+}
 ```
 
 ---
@@ -57,12 +102,45 @@ $env:GEMINI_API_KEY="your_gemini_api_key_here"
 python pipeline.py
 ```
 
-Or run installation + execution together:
+### One-liner Setup & Run
+
+**macOS / Linux:**
 ```bash
-pip install -r requirements.txt
-export HF_TOKEN="your_huggingface_token_here"
-export GEMINI_API_KEY="your_gemini_api_key_here"
+pip install -r requirements. txt && \
+export HF_TOKEN="your_huggingface_token_here" && \
+export GEMINI_API_KEY="your_gemini_api_key_here" && \
 python pipeline.py
+```
+
+**Windows PowerShell:**
+```powershell
+pip install -r requirements. txt; `
+$env:HF_TOKEN="your_huggingface_token_here"; `
+$env:GEMINI_API_KEY="your_gemini_api_key_here"; `
+python pipeline. py
+```
+
+---
+
+## Output Structure
+
+Results are organized by model and evaluation mode:
+
+```
+results/
+├── llama-3.2-1b/
+│   ├── zeroshot_archai-adr_llama-3. 2-1b_detailed.json
+│   ├── zeroshot_archai-adr_llama-3.2-1b_summary.json
+│   ├── fewshot_archai-adr_llama-3.2-1b_detailed.json
+│   ├── fewshot_archai-adr_llama-3.2-1b_summary.json
+│   ├── finetuned_archai-adr_llama-3.2-1b_detailed.json
+│   └── finetuned_archai-adr_llama-3.2-1b_summary.json
+├── phi-3-mini/
+│   └── ... 
+├── all_runs_summary.csv
+├── zero_shot_summary.csv
+├── few_shot_summary.csv
+└── fine_tune_summary.csv
 ```
 
 ---
@@ -70,9 +148,11 @@ python pipeline.py
 ## Running on Lightning AI
 
 1. Upload your project.
-2. Add `HF_TOKEN` in Environment Variables (with READ permission).
-3. Add `GEMINI_API_KEY` in Environment Variables.
-3. **Select GPU runtime** (required for FlashAttention).
+2. Add environment variables:
+   - `HF_TOKEN` (with READ permission)
+   - `GEMINI_API_KEY`
+   - (Optional) `FEW_SHOT_K`
+3.  **Select GPU runtime** (recommended: A10G or higher).
 4. Run:
 ```bash
 pip install -r requirements.txt && python pipeline.py
@@ -80,4 +160,25 @@ pip install -r requirements.txt && python pipeline.py
 
 ---
 
-That's it — clean and fast to follow.
+## Evaluation Modes
+
+| Mode | Description | Training Required |
+|---|---|---|
+| `zero_shot` | Evaluate pre-trained model without examples | ❌ No |
+| `few_shot` | Evaluate with K examples prepended to prompt | ❌ No |
+| `fine_tune` | Fine-tune with LoRA, then evaluate | ✅ Yes |
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|---|---|
+| `CUDA out of memory` | Reduce `per_device_train_batch_size` in `config.py` |
+| `Rate limit exceeded` (Gemini) | Wait and retry, or reduce evaluation samples |
+| `Model access denied` | Ensure HF_TOKEN has READ permission and model access is granted |
+| `Context length exceeded` | Reduce `FEW_SHOT_K` for few-shot mode |
+
+---

@@ -22,3 +22,5 @@ google-generativeai
 tiktoken
 pytest
 openpyxl
+nltk
+sacrebleu

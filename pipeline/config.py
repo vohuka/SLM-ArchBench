@@ -76,6 +76,9 @@ GENERATION_CONFIG = {
     "early_stopping": False 
 }
 
+# Few-shot configuration
+FEW_SHOT_K = int(os.environ.get("FEW_SHOT_K", 3))
+
 # API Configuration
 HF_TOKEN = os.environ.get("HF_TOKEN", None)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", None)
