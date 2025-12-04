@@ -3,32 +3,15 @@
 ## Prerequisites
 
 * Python 3.10+
-* **NVIDIA GPU with FlashAttention support (required)**
-  - Recommended: RTX 3090, A100, H100, or newer
-  - Minimum: GPU with compute capability 8.0+ (Ampere architecture or newer)
-  - CUDA 11.8+ drivers installed
-* A valid Hugging Face token with **READ permission**
-
-> ⚠️ **Important**: This pipeline requires FlashAttention for Phi-3 Small model. Running without a compatible NVIDIA GPU will result in errors.
+* NVIDIA GPU (recommended for fast finetuning)
+* A valid Gemini API key for validation
+* A valid Hugging Face token with READ permission
 
 ---
 
 ## Installation
 
-### 1. Copy Dataset Folder
-
-**Copy the `datasets` folder into the `pipeline` folder:**
-
-```
-project/
-├── datasets/           ← Copy this folder
-└── pipeline/
-    ├── datasets/       ← Paste here (same level as pipeline.py)
-    ├── pipeline.py
-    └── requirements.txt
-```
-
-### 2. Install Dependencies
+### Install Dependencies
 
 ```bash
 pip install -r requirements.txt
