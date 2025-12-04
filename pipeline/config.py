@@ -79,9 +79,8 @@ GENERATION_CONFIG = {
 # Few-shot configuration
 FEW_SHOT_K = int(os.environ.get("FEW_SHOT_K", 3))
 
-# Run only specific modes
-# EVAL_MODES = ["zero_shot"]  # Zero-shot only
-# EVAL_MODES = ["fine_tune"]  # Fine-tuning only
+# Run all 3 modes sequentially (default)
+EVAL_MODES = ["zero_shot", "few_shot", "fine_tune"]
 
 # API Configuration
 HF_TOKEN = os.environ.get("HF_TOKEN", None)
