@@ -272,7 +272,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                         temperature=0.0,
                         top_p=1.0,
                         top_k=1,
-                        max_output_tokens=10,
+                        max_output_tokens=65536,
                     )
                 )
                 
