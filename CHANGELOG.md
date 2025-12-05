@@ -7,12 +7,18 @@ All notable changes to this project will be documented in this file.
 ## [3.1] - 2025-12-05
 
 ### Highlights
-- Added **smart resume** for fine-tuning mode: skip training if model already exists, only re-run validation. 
+- Added **smart resume** for fine-tuning mode: skip training if model already exists, only re-run validation.
+- Fixed **METEOR metric** always returning 0 due to missing NLTK data. 
+
 
 ### Details
 - If `models/` exists but `results/` is missing → load saved model and validate only (no retraining). 
 - Added `load_finetuned_model()` function to support loading LoRA adapters. 
 - Model is now saved before validation to enable resume if validation fails. 
+- Added `_ensure_nltk_data()` function to auto-download required NLTK resources: `wordnet`, `omw-1.4`, `punkt`, `punkt_tab`. 
+- Fixed METEOR computation to use proper tokenization with `word_tokenize()` instead of raw strings.
+- Added fallback to simple `split()` if tokenization fails.
+- Suppressed BERTScore warnings about uninitialized RobertaModel weights. 
 ---
 ## [3.0] - 2025-12-05
 
