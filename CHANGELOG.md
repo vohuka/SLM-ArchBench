@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+---
 
+## [3.1] - 2025-12-05
+
+### Highlights
+- Added **smart resume** for fine-tuning mode: skip training if model already exists, only re-run validation. 
+
+### Details
+- If `models/` exists but `results/` is missing → load saved model and validate only (no retraining). 
+- Added `load_finetuned_model()` function to support loading LoRA adapters. 
+- Model is now saved before validation to enable resume if validation fails. 
 ---
 ## [3.0] - 2025-12-05
 

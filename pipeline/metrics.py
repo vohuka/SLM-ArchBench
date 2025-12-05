@@ -3,6 +3,8 @@ All metric computation functions: NLG + Research metrics.
 Improved: corpus-level BLEU (sacrebleu), robust METEOR handling,
 batched BERTScore with device selection, and better fallbacks.
 """
+import warnings
+import logging
 import numpy as np
 import time
 import torch
@@ -11,7 +13,27 @@ from typing import List, Dict, Iterable
 from utils import extract_components
 from config import JUDGE_MODEL, GEMINI_API_KEY
 
-# Safety: optional imports are inside functions with graceful fallbacks
+# Suppress BERTScore warnings
+warnings.filterwarnings("ignore", message="Some weights of RobertaModel were not initialized")
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
+# Pre-download NLTK data for METEOR
+def _ensure_nltk_data():
+    """Ensure NLTK data is downloaded for METEOR."""
+    try:
+        import nltk
+        resources = ['wordnet', 'omw-1.4', 'punkt', 'punkt_tab']
+        for resource in resources:
+            try:
+                nltk.data.find(f'corpora/{resource}' if resource in ['wordnet', 'omw-1.4'] else f'tokenizers/{resource}')
+            except LookupError:
+                print(f"[INFO] Downloading NLTK resource: {resource}")
+                nltk.download(resource, quiet=True)
+    except ImportError:
+        pass
+
+# Run at import time
+_ensure_nltk_data()
 
 
 def _batch_iter(items: List[str], batch_size: int) -> Iterable[List[str]]:
@@ -62,16 +84,9 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
     # -------------------------
     try:
         import sacrebleu
-        # sacrebleu expects references as list of reference lists
-        # references_list shape: list of lists, each inner list is references for one sample
-        refs_for_sacre = [[r] for r in references]  # sacrebleu.corpus_bleu expects list of list-of-refs by reference-stream
-        # sacrebleu.corpus_bleu takes predictions and list_of_references where list_of_references is list of reference streams
-        # We convert to the required form: list of reference strings per reference-stream
-        # Simpler: pass [references] as reference streams
         bleu_score = sacrebleu.corpus_bleu(predictions, [references])
-        metrics['bleu'] = float(bleu_score.score / 100.0)  # convert 0-100 -> 0-1 scale for consistency
+        metrics['bleu'] = float(bleu_score.score / 100.0)
     except Exception as e:
-        # Fallback to nltk sentence_bleu with smoothing
         try:
             from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
             smoothing = SmoothingFunction().method1
@@ -88,26 +103,53 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
             metrics['bleu'] = 0.0
 
     # -------------------------
-    # METEOR (nltk)
+    # METEOR (nltk) - FIXED
     # -------------------------
     try:
-        from nltk.translate.meteor_score import meteor_score
         import nltk
-        # ensure resources
-        try:
-            nltk.data.find('corpora/wordnet')
-        except LookupError:
-            nltk.download('wordnet', quiet=True)
-            nltk.download('omw-1.4', quiet=True)
+        from nltk.translate.meteor_score import meteor_score
+        from nltk.tokenize import word_tokenize
+        
+        # Ensure all required NLTK data is available
+        required_resources = [
+            ('corpora', 'wordnet'),
+            ('corpora', 'omw-1.4'),
+            ('tokenizers', 'punkt'),
+            ('tokenizers', 'punkt_tab'),
+        ]
+        
+        for category, resource in required_resources:
+            try:
+                nltk.data.find(f'{category}/{resource}')
+            except LookupError:
+                print(f"[INFO] Downloading NLTK {resource}...")
+                nltk.download(resource, quiet=True)
 
         meteor_scores = []
         for pred, ref in zip(predictions, references):
-            # meteor_score expects reference list (strings) and hypothesis string
-            score = meteor_score([ref], pred)
-            meteor_scores.append(score)
+            try:
+                # Tokenize both reference and hypothesis
+                ref_tokens = word_tokenize(ref.lower())
+                pred_tokens = word_tokenize(pred.lower())
+                
+                # meteor_score expects: references (list of tokenized refs), hypothesis (tokenized)
+                score = meteor_score([ref_tokens], pred_tokens)
+                meteor_scores.append(score)
+            except Exception as e:
+                # If tokenization fails, try simple split
+                try:
+                    ref_tokens = ref.lower().split()
+                    pred_tokens = pred.lower().split()
+                    score = meteor_score([ref_tokens], pred_tokens)
+                    meteor_scores.append(score)
+                except:
+                    meteor_scores.append(0.0)
+        
         metrics['meteor'] = float(np.mean(meteor_scores)) if meteor_scores else 0.0
-    except ImportError:
-        print("[WARN] nltk or METEOR not available. Skipping METEOR.")
+        print(f"[INFO] METEOR computed successfully: {metrics['meteor']:.4f}")
+        
+    except ImportError as e:
+        print(f"[WARN] nltk not installed. Skipping METEOR. Error: {e}")
         metrics['meteor'] = 0.0
     except Exception as e:
         print(f"[WARN] METEOR scoring failed: {e}. Skipping METEOR.")
@@ -122,20 +164,19 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
         P_vals = []
         R_vals = []
         F_vals = []
-        # Run in batches to avoid OOM
+        
         for pred_batch, ref_batch in zip(_batch_iter(predictions, bert_batch_size),
                                          _batch_iter(references, bert_batch_size)):
             P, R, F1 = bert_score(list(pred_batch), list(ref_batch),
                                   lang='en',
                                   device=device,
                                   batch_size=min(bert_batch_size, 64),
-                                  rescale_with_baseline=True)
-            # bert_score returns tensors; convert to numpy and extend
+                                  rescale_with_baseline=True,
+                                  verbose=False)
             P_vals.extend(P.detach().cpu().tolist())
             R_vals.extend(R.detach().cpu().tolist())
             F_vals.extend(F1.detach().cpu().tolist())
 
-        # If the last batch sizes differ, ensure lengths align
         n = min(len(predictions), len(P_vals))
         if n == 0:
             metrics['bertscore_precision'] = metrics['bertscore_recall'] = metrics['bertscore_f1'] = 0.0
@@ -144,10 +185,10 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
             metrics['bertscore_recall'] = float(np.mean(R_vals[:n]))
             metrics['bertscore_f1'] = float(np.mean(F_vals[:n]))
     except ImportError:
-        print("[WARN] bert-score not installed. Skipping BERTScore.")
+        print("[WARN] bert-score not installed.Skipping BERTScore.")
         metrics['bertscore_precision'] = metrics['bertscore_recall'] = metrics['bertscore_f1'] = 0.0
     except Exception as e:
-        print(f"[WARN] BERTScore computation failed: {e}. Skipping BERTScore.")
+        print(f"[WARN] BERTScore computation failed: {e}.Skipping BERTScore.")
         metrics['bertscore_precision'] = metrics['bertscore_recall'] = metrics['bertscore_f1'] = 0.0
 
     return metrics
@@ -176,7 +217,7 @@ def compute_diversity_score(responses: List[str]) -> float:
 
         return float(np.mean(similarities)) if similarities else 0.0
     except ImportError:
-        print("[WARN] sentence-transformers not installed.Skipping Diversity Score.")
+        print("[WARN] sentence-transformers not installed. Skipping Diversity Score.")
         return 0.0
 
 
@@ -186,7 +227,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     Free tier: 15 RPM, 1M TPM, 1500 RPD.
     """
     if not GEMINI_API_KEY:
-        print("[WARN] GEMINI_API_KEY not set.Skipping Compliance Score.")
+        print("[WARN] GEMINI_API_KEY not set. Skipping Compliance Score.")
         return 0.0
     
     try:
@@ -194,14 +235,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         
         genai.configure(api_key=GEMINI_API_KEY)
         
-        model = genai.GenerativeModel(
-            JUDGE_MODEL,
-            safety_settings={
-                # local import of enums to avoid top-level import issues
-                getattr(genai.types, "HarmCategory", {}).HARM_CATEGORY_HARASSMENT if hasattr(genai, "types") else None:
-                None
-            } if False else {}
-        )
+        model = genai.GenerativeModel(JUDGE_MODEL)
         
         prompt = f"""You are an expert software architecture evaluator.
 
@@ -225,7 +259,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         - 61-80: Good alignment with minor differences
         - 81-100: Excellent alignment, equivalent or better
 
-        Respond with ONLY a number between 0 and 100.No explanation."""
+        Respond with ONLY a number between 0 and 100. No explanation."""
 
         max_retries = 3
         retry_delay = 2
@@ -238,33 +272,28 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                         temperature=0.0,
                         top_p=1.0,
                         top_k=1,
-                        max_output_tokens=65536,
+                        max_output_tokens=10,
                     )
                 )
                 
-                # Check candidates exist
                 if not response.candidates:
                     print(f"[WARN] Gemini response blocked (no candidates)")
                     return 0.0
                 
                 candidate = response.candidates[0]
                 
-                # Handle finish reasons
                 if candidate.finish_reason == 3:  # SAFETY
                     print(f"[WARN] Gemini blocked response due to safety filters")
                     return 0.0
                 
-                # Try to extract text from candidate
                 score_text = ""
                 
-                # Method 1: Try response.text (only works for finish_reason=1)
                 if candidate.finish_reason == 1:  # STOP (normal)
                     try:
                         score_text = response.text.strip()
                     except:
                         pass
                 
-                # Method 2: Extract from parts directly (works for finish_reason=1,2)
                 if not score_text:
                     try:
                         if candidate.content and candidate.content.parts:
@@ -276,7 +305,6 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                     except Exception as e:
                         print(f"[WARN] Failed to extract from parts: {e}")
                 
-                # Parse score
                 if score_text:
                     import re
                     numbers = re.findall(r'\d+', score_text)
@@ -295,7 +323,7 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                 error_msg = str(e)
                 if "429" in error_msg or "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
                     if attempt < max_retries - 1:
-                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s...(attempt {attempt + 1}/{max_retries})")
+                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue
@@ -303,7 +331,6 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                         print(f"[ERROR] Rate limit exceeded after {max_retries} attempts")
                         return 0.0
                 else:
-                    # Log but don't crash
                     print(f"[WARN] Unexpected error in compliance scoring: {e}")
                     return 0.0
         
