@@ -11,11 +11,13 @@ import torch
 from typing import List, Dict, Iterable
 
 from utils import extract_components
-from config import JUDGE_MODEL, GEMINI_API_KEY
+from config import JUDGE_MODEL, GEMINI_API_KEYS
+import itertools
 
 # Suppress BERTScore warnings
 warnings.filterwarnings("ignore", message="Some weights of RobertaModel were not initialized")
 logging.getLogger("transformers").setLevel(logging.ERROR)
+_api_key_cycle = itertools.cycle(GEMINI_API_KEYS) if GEMINI_API_KEYS else None
 
 # Pre-download NLTK data for METEOR
 def _ensure_nltk_data():
@@ -42,14 +44,14 @@ def _batch_iter(items: List[str], batch_size: int) -> Iterable[List[str]]:
 
 
 def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batch_size: int = 64) -> Dict[str, float]:
-    """Compute ROUGE, BLEU, METEOR, BERTScore. Returns a dict of metrics."""
+    """Compute ROUGE, BLEU, METEOR, BERTScore.Returns a dict of metrics."""
     metrics = {}
 
     # Basic checks
     if len(predictions) != len(references):
         print("[WARN] compute_nlg_metrics: predictions and references length mismatch.")
     if len(predictions) == 0:
-        print("[WARN] compute_nlg_metrics: empty predictions. Returning zeros.")
+        print("[WARN] compute_nlg_metrics: empty predictions.Returning zeros.")
         return {
             'rouge1': 0.0, 'rouge2': 0.0, 'rougeL': 0.0,
             'bleu': 0.0, 'meteor': 0.0,
@@ -76,7 +78,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
         metrics['rouge2'] = float(np.mean(rouge2_scores)) if rouge2_scores else 0.0
         metrics['rougeL'] = float(np.mean(rougeL_scores)) if rougeL_scores else 0.0
     except ImportError:
-        print("[WARN] rouge-score not installed. Skipping ROUGE.")
+        print("[WARN] rouge-score not installed.Skipping ROUGE.")
         metrics['rouge1'] = metrics['rouge2'] = metrics['rougeL'] = 0.0
 
     # -------------------------
@@ -99,7 +101,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
             metrics['bleu'] = float(np.mean(bleu_scores)) if bleu_scores else 0.0
             print("[WARN] sacrebleu not available or failed, used nltk sentence_bleu fallback.")
         except ImportError:
-            print("[WARN] nltk not installed. Skipping BLEU.")
+            print("[WARN] nltk not installed.Skipping BLEU.")
             metrics['bleu'] = 0.0
 
     # -------------------------
@@ -149,10 +151,10 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
         print(f"[INFO] METEOR computed successfully: {metrics['meteor']:.4f}")
         
     except ImportError as e:
-        print(f"[WARN] nltk not installed. Skipping METEOR. Error: {e}")
+        print(f"[WARN] nltk not installed.Skipping METEOR.Error: {e}")
         metrics['meteor'] = 0.0
     except Exception as e:
-        print(f"[WARN] METEOR scoring failed: {e}. Skipping METEOR.")
+        print(f"[WARN] METEOR scoring failed: {e}.Skipping METEOR.")
         metrics['meteor'] = 0.0
 
     # -------------------------
@@ -217,23 +219,26 @@ def compute_diversity_score(responses: List[str]) -> float:
 
         return float(np.mean(similarities)) if similarities else 0.0
     except ImportError:
-        print("[WARN] sentence-transformers not installed. Skipping Diversity Score.")
+        print("[WARN] sentence-transformers not installed.Skipping Diversity Score.")
         return 0.0
 
 
 def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     """
     Compliance Score using Gemini 2.5 Flash as LLM-as-a-Judge.
-    Free tier: 15 RPM, 1M TPM, 1500 RPD.
+    Rotates between multiple API keys to increase rate limit.
     """
-    if not GEMINI_API_KEY:
-        print("[WARN] GEMINI_API_KEY not set. Skipping Compliance Score.")
+    global _api_key_cycle
+    
+    if not GEMINI_API_KEYS:
+        print("[WARN] No GEMINI_API_KEY set.Skipping Compliance Score.")
         return 0.0
     
     try:
         import google.generativeai as genai
         
-        genai.configure(api_key=GEMINI_API_KEY)
+        current_api_key = next(_api_key_cycle)
+        genai.configure(api_key=current_api_key)
         
         model = genai.GenerativeModel(JUDGE_MODEL)
         
@@ -259,10 +264,10 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
         - 61-80: Good alignment with minor differences
         - 81-100: Excellent alignment, equivalent or better
 
-        Respond with ONLY a number between 0 and 100. No explanation."""
+        Respond with ONLY a number between 0 and 100.No explanation."""
 
-        max_retries = 3
-        retry_delay = 2
+        max_retries = 5
+        retry_delay = 10
         
         for attempt in range(max_retries):
             try:
@@ -282,13 +287,13 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                 
                 candidate = response.candidates[0]
                 
-                if candidate.finish_reason == 3:  # SAFETY
+                if candidate.finish_reason == 3:
                     print(f"[WARN] Gemini blocked response due to safety filters")
                     return 0.0
                 
                 score_text = ""
                 
-                if candidate.finish_reason == 1:  # STOP (normal)
+                if candidate.finish_reason == 1:
                     try:
                         score_text = response.text.strip()
                     except:
@@ -323,9 +328,10 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
                 error_msg = str(e)
                 if "429" in error_msg or "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
                     if attempt < max_retries - 1:
-                        print(f"[WARN] Rate limit hit, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                        current_api_key = next(_api_key_cycle)
+                        genai.configure(api_key=current_api_key)
+                        print(f"[WARN] Rate limit hit, switching API key and retrying in {retry_delay}s...(attempt {attempt + 1}/{max_retries})")
                         time.sleep(retry_delay)
-                        retry_delay *= 2
                         continue
                     else:
                         print(f"[ERROR] Rate limit exceeded after {max_retries} attempts")
@@ -342,7 +348,6 @@ def compute_compliance_score(model_answer: str, ground_truth: str) -> float:
     except Exception as e:
         print(f"[ERROR] Compliance scoring with Gemini failed: {e}")
         return 0.0
-
 
 def compute_ripple_effect_recall(model_answer: str, ground_truth: str) -> Dict[str, float]:
     """Ripple Effect Recall with improved regex-based component extraction."""

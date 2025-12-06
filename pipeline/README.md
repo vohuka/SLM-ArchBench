@@ -32,14 +32,17 @@ pip install -r requirements.txt
 | macOS / Linux | `export HF_TOKEN="your_huggingface_token_here"` |
 | Windows PowerShell | `$env:HF_TOKEN="your_huggingface_token_here"` |
 
-#### 2.  Gemini API Key
+#### 2. Gemini API Key
 
 Get it from [Google AI Studio → Create API Key](https://aistudio.google.com/apikey).
+The free tier limits each API key to **250 requests/day** and **10 requests/minute**. To increase throughput, you can use up to 4 API keys that rotate automatically.
 
-| OS | Command |
+| OS | Commands |
 |---|---|
-| macOS / Linux | `export GEMINI_API_KEY="your_gemini_api_key_here"` |
-| Windows PowerShell | `$env:GEMINI_API_KEY="your_gemini_api_key_here"` |
+| macOS / Linux | `export GEMINI_API_KEY_1="your_first_api_key"`<br>`export GEMINI_API_KEY_2="your_second_api_key"`<br>`export GEMINI_API_KEY_3="your_third_api_key"`<br>`export GEMINI_API_KEY_4="your_fourth_api_key"` |
+| Windows PowerShell | `$env:GEMINI_API_KEY_1="your_first_api_key"`<br>`$env:GEMINI_API_KEY_2="your_second_api_key"`<br>`$env:GEMINI_API_KEY_3="your_third_api_key"`<br>`$env:GEMINI_API_KEY_4="your_fourth_api_key"` |
+
+> **Note:** You only need to set the keys you have.  The system will automatically use all available keys. 
 
 ### Optional Variables
 

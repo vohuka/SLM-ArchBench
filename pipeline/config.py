@@ -84,5 +84,14 @@ EVAL_MODES = ["zero_shot", "few_shot", "fine_tune"]
 
 # API Configuration
 HF_TOKEN = os.environ.get("HF_TOKEN", None)
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", None)
 JUDGE_MODEL = "gemini-2.5-flash" 
+
+GEMINI_API_KEYS = [
+    os.environ.get("GEMINI_API_KEY_1", None),
+    os.environ.get("GEMINI_API_KEY_2", None),
+    os.environ.get("GEMINI_API_KEY_3", None),
+    os.environ.get("GEMINI_API_KEY_4", None)
+]
+
+# Filter None
+GEMINI_API_KEYS = [k for k in GEMINI_API_KEYS if k]

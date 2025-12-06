@@ -23,7 +23,7 @@ from metrics import (
 from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED
 
 # Rate limit delay for Gemini API (free tier: 15 RPM)
-GEMINI_RATE_LIMIT_DELAY = 4.5  # seconds between requests (60/15 = 4s, add buffer)
+GEMINI_RATE_LIMIT_DELAY = 5 
 
 
 def get_mode_prefix(mode: str) -> str:
@@ -78,7 +78,7 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
     all_references = []
     all_alternatives = []
 
-    print(f"[INFO] Evaluating on {len(val_df)} samples... (mode={mode})")
+    print(f"[INFO] Evaluating on {len(val_df)} samples...(mode={mode})")
 
     # build few-shot prefix if requested
     few_shot_prefix = ""

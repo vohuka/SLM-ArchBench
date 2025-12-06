@@ -9,7 +9,8 @@ All notable changes to this project will be documented in this file.
 ### Highlights
 - Added **smart resume** for fine-tuning mode: skip training if model already exists, only re-run validation.
 - Fixed **METEOR metric** always returning 0 due to missing NLTK data. 
-
+- Added **multi API key rotation** for Gemini to handle rate limits. 
+- Added **rate limit delay** between compliance score requests. 
 
 ### Details
 - If `models/` exists but `results/` is missing → load saved model and validate only (no retraining). 
@@ -19,6 +20,9 @@ All notable changes to this project will be documented in this file.
 - Fixed METEOR computation to use proper tokenization with `word_tokenize()` instead of raw strings.
 - Added fallback to simple `split()` if tokenization fails.
 - Suppressed BERTScore warnings about uninitialized RobertaModel weights. 
+- Support multiple Gemini API keys via `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc. 
+- Rotate API keys automatically when rate limit is hit.
+- Added `GEMINI_RATE_LIMIT_DELAY = 5s` between requests to respect 10 RPM limit.
 ---
 ## [3.0] - 2025-12-05
 
