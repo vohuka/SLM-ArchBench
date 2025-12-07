@@ -88,7 +88,7 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
             print("[WARN] few_shot mode requested but support_df empty - falling back to zero-shot")
 
     single_sequence_cfg = dict(GENERATION_CONFIG)
-    single_sequence_cfg["num_return_sequences"] = 5
+    single_sequence_cfg["num_return_sequences"] = 3
 
     for idx, row in val_df.iterrows():
         base_prompt = row["prompt"]
@@ -112,7 +112,7 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
                 do_sample=single_sequence_cfg.get("do_sample", GENERATION_CONFIG["do_sample"]),
                 temperature=single_sequence_cfg.get("temperature", GENERATION_CONFIG["temperature"]),
                 top_p=single_sequence_cfg.get("top_p", GENERATION_CONFIG["top_p"]),
-                num_return_sequences=single_sequence_cfg.get("num_return_sequences", 1),
+                num_return_sequences=single_sequence_cfg.get("num_return_sequences", 3),
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
                 use_cache=False
