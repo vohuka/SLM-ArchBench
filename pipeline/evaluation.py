@@ -88,8 +88,8 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
             print("[WARN] few_shot mode requested but support_df empty - falling back to zero-shot")
 
     single_sequence_cfg = dict(GENERATION_CONFIG)
-    single_sequence_cfg["num_return_sequences"] = 1
-
+    single_sequence_cfg["num_return_sequences"] = 5
+    
     for idx, row in val_df.iterrows():
         base_prompt = row["prompt"]
         ground_truth = row["target"]

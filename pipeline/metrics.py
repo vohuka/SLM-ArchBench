@@ -173,7 +173,7 @@ def compute_nlg_metrics(predictions: List[str], references: List[str], bert_batc
                                   lang='en',
                                   device=device,
                                   batch_size=min(bert_batch_size, 64),
-                                  rescale_with_baseline=True,
+                                  rescale_with_baseline=False,
                                   verbose=False)
             P_vals.extend(P.detach().cpu().tolist())
             R_vals.extend(R.detach().cpu().tolist())
