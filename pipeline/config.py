@@ -78,7 +78,7 @@ TRAINING_ARGS = {
 
 # Generation Configuration
 GENERATION_CONFIG = {
-    "max_new_tokens": 256,
+    "max_new_tokens": 1024,
     "do_sample": True,
     "temperature": 1.0,
     "top_p": 0.92,
