@@ -20,6 +20,18 @@ MODEL_CANDIDATES = {
     "mistral-7b-v0.3": "mistralai/Mistral-7B-Instruct-v0.3",
 }
 
+MODEL_MAX_TOKEN = {
+    "llama-3.2-1b": 131072,
+    "llama-3.2-3b": 131072,
+    "phi-3-mini": 4096,
+    "olmo-2-1b": 4096,
+    "olmo-2-7b": 4096,
+    "qwen2.5-1.5b": 32768,
+    "qwen2.5-3b": 32768,
+    "gemma-3-1b": 32768,
+    "smollm2-1.7b": 8192,
+    "mistral-7b-v0.3": 32768,
+}
 # ============================================================
 # DATASET CONFIGURATIONS
 # ============================================================
@@ -34,18 +46,7 @@ DATASETS_CONFIG = [
 
 USE_4BIT = True
 #Based on model config
-MAX_LENGTH = {
-    "llama-3.2-1b": 131072,
-    "llama-3.2-3b": 131072,
-    "phi-3-mini": 4096,
-    "olmo-2-1b": 4096,
-    "olmo-2-7b": 4096,
-    "qwen2.5-1.5b": 32768,
-    "qwen2.5-3b": 32768,
-    "gemma-3-1b": 32768,
-    "smollm2-1.7b": 8192,
-    "mistral-7b-v0.3": 32768,
-}
+MAX_LENGTH = 1024
 TEST_SIZE = 0.2
 RANDOM_SEED = 42
 

@@ -20,7 +20,7 @@ from metrics import (
     compute_compliance_score,
     compute_ripple_effect_recall,
 )
-from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED
+from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED, MODEL_MAX_TOKEN
 
 # Rate limit delay for Gemini API (free tier: 15 RPM)
 GEMINI_RATE_LIMIT_DELAY = 5 
@@ -89,7 +89,7 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
 
     single_sequence_cfg = dict(GENERATION_CONFIG)
     single_sequence_cfg["num_return_sequences"] = 5
-    
+
     for idx, row in val_df.iterrows():
         base_prompt = row["prompt"]
         ground_truth = row["target"]
@@ -100,7 +100,7 @@ def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
             prompt = base_prompt
 
         input_ids = tokenizer(
-            prompt, return_tensors="pt", truncation=True, max_length=1024
+            prompt, return_tensors="pt", truncation=True, max_length=MODEL_MAX_TOKEN[model_key]
         ).to(model.device)
 
         start_time = time.time()
