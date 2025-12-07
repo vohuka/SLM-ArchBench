@@ -45,7 +45,7 @@ def get_results_dir(model_key: str) -> str:
 
 def build_few_shot_prefix(support_df: pd.DataFrame, k: int = 2, seed: int = 42) -> str:
     """
-    Build few-shot examples prefix from support_df. 
+    Build few-shot examples prefix from support_df.
     
     - Uses FEW_SHOT_FIXED_INDICES from config for the first examples
     - If k > len(fixed_indices): adds random samples for the rest
@@ -81,19 +81,19 @@ def build_few_shot_prefix(support_df: pd.DataFrame, k: int = 2, seed: int = 42) 
                 random_state=seed
             )
             # Combine fixed + random
-            sampled = pd. concat([fixed_samples, random_samples])
+            sampled = pd.concat([fixed_samples, random_samples])
         else:
             sampled = fixed_samples
     
     # Build example texts
     example_texts = []
-    for _, r in sampled. iterrows():
+    for _, r in sampled.iterrows():
         ctx = r.get("prompt", "")
         tgt = r.get("target", "")
         example = f"{ctx}\n{tgt}\n"
         example_texts.append(example)
     
-    return "\n---\n". join(example_texts) + "\n\n"
+    return "\n---\n".join(example_texts) + "\n\n"
 
 
 def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,

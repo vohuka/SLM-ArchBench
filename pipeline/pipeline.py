@@ -17,9 +17,9 @@ def main():
     
     print("=" * 80)
     print("PyTorch version:", torch.__version__)
-    print("CUDA available:", torch. cuda.is_available())
+    print("CUDA available:", torch.cuda.is_available())
     if torch.cuda.is_available():
-        print("GPU name:", torch.cuda. get_device_name(0))
+        print("GPU name:", torch.cuda.get_device_name(0))
     print("=" * 80)
     print(f"Evaluation modes to run: {EVAL_MODES}")
     print("=" * 80)
@@ -30,7 +30,7 @@ def main():
 
     # Set seeds
     random.seed(RANDOM_SEED)
-    torch. manual_seed(RANDOM_SEED)
+    torch.manual_seed(RANDOM_SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(RANDOM_SEED)
 
@@ -59,7 +59,7 @@ def main():
                 dataset_name, data_path, EVAL_MODES
             )
 
-            all_results. extend(results)
+            all_results.extend(results)
 
         # Free memory
         del model
@@ -68,7 +68,7 @@ def main():
 
     # Save combined summary
     if all_results:
-        results_df = pd. DataFrame(all_results)
+        results_df = pd.DataFrame(all_results)
         print("\n" + "=" * 80)
         print("=== ALL RUNS SUMMARY ===")
         print("=" * 80)
@@ -77,12 +77,12 @@ def main():
         os.makedirs("results", exist_ok=True)
         
         csv_path = "results/all_runs_summary.csv"
-        results_df. to_csv(csv_path, index=False)
+        results_df.to_csv(csv_path, index=False)
         print(f"[INFO] Saved combined summary to {csv_path}")
         
         try:
             excel_path = "results/all_runs_summary.xlsx"
-            results_df. to_excel(excel_path, index=False)
+            results_df.to_excel(excel_path, index=False)
             print(f"[INFO] Saved to {excel_path}")
         except:
             pass

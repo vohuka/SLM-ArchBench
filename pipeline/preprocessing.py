@@ -20,7 +20,7 @@ def preprocess_archai_adr(df: pd.DataFrame) -> pd.DataFrame:
 
     def build_prompt(row):
         return (
-            "You are a software architecture assistant. "
+            "You are a software architecture assistant."
             "Given the following architecture decision context, write a clear and complete "
             "Architecture Decision Record (ADR) decision.\n\n"
             f"Context:\n{row[src_col]}\n\n"
