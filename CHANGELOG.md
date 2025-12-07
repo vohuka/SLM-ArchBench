@@ -3,7 +3,33 @@
 All notable changes to this project will be documented in this file.
 
 ---
+## [3.2] - 2025-12-07
 
+### Highlights
+- **Fixed few-shot evaluation**: Now uses `MODEL_MAX_TOKEN` per model instead of hardcoded 1024, preventing prompt truncation. 
+- **Configurable few-shot examples**: Added `FEW_SHOT_FIXED_INDICES` to specify exact training samples for few-shot prompts.
+- **Reduced few-shot K**: Changed default `FEW_SHOT_K` from 3 to 2 for faster inference. 
+
+### Details
+
+#### Few-shot Prompt Fix
+- **evaluation.py**: Changed `max_length` in tokenizer from hardcoded `1024` to `MODEL_MAX_TOKEN[model_key]` to support full few-shot prompts without truncation. 
+
+#### Configurable Few-shot Examples
+- **config. py**: Added `FEW_SHOT_FIXED_INDICES = [50, 72]` to allow specifying which training samples to use as few-shot examples. 
+- **evaluation.py**: Refactored `build_few_shot_prefix()` function:
+  - Uses fixed indices from config for the first K examples.
+  - If `k > len(fixed_indices)`: adds random samples for the rest.
+  - Validates indices exist in dataframe before accessing.
+
+#### Performance Optimizations
+- **config.py**: Changed `FEW_SHOT_K` default from 3 to 2 for faster evaluation. 
+- **evaluation.py**: Changed `num_return_sequences` from 5 to 3 to reduce generation time while still computing diversity score. 
+
+#### Code Quality
+- **evaluation.py**: Added import for `FEW_SHOT_FIXED_INDICES` from config.
+- **evaluation.py**: Added logging to show few-shot configuration: `[INFO] Built few-shot prefix with k={k}, fixed_indices={indices}`.
+---
 ## [3.1] - 2025-12-05
 
 ### Highlights

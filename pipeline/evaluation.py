@@ -20,7 +20,7 @@ from metrics import (
     compute_compliance_score,
     compute_ripple_effect_recall,
 )
-from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED, MODEL_MAX_TOKEN
+from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED, MODEL_MAX_TOKEN, FEW_SHOT_GOLDEN_INDICES
 
 # Rate limit delay for Gemini API (free tier: 15 RPM)
 GEMINI_RATE_LIMIT_DELAY = 5 
@@ -43,21 +43,57 @@ def get_results_dir(model_key: str) -> str:
     return results_dir
 
 
-def build_few_shot_prefix(support_df: pd.DataFrame, k: int = 3, seed: int = 42) -> str:
+def build_few_shot_prefix(support_df: pd.DataFrame, k: int = 2, seed: int = 42) -> str:
     """
-    Build few-shot examples prefix from support_df.
+    Build few-shot examples prefix from support_df. 
+    
+    - Uses FEW_SHOT_FIXED_INDICES from config for the first examples
+    - If k > len(fixed_indices): adds random samples for the rest
     """
     if support_df is None or len(support_df) == 0:
         return ""
+    
     k = min(k, len(support_df))
-    sampled = support_df.sample(n=k, random_state=seed) if hasattr(support_df, "sample") else support_df[:k]
+    
+    # Get golden indices from config
+    fixed_indices = FEW_SHOT_GOLDEN_INDICES
+    
+    # Validate fixed indices exist in dataframe
+    valid_fixed_indices = [idx for idx in fixed_indices if idx < len(support_df)]
+    
+    if k <= len(valid_fixed_indices):
+        # Use only fixed indices (up to k)
+        sampled = support_df.iloc[valid_fixed_indices[:k]]
+    else:
+        # Use fixed indices + random samples for the rest
+        fixed_samples = support_df.iloc[valid_fixed_indices]
+        
+        # Get remaining rows (exclude fixed indices) for random sampling
+        remaining_df = support_df.drop(support_df.index[valid_fixed_indices])
+        
+        # Number of additional random samples needed
+        num_random = k - len(valid_fixed_indices)
+        
+        # Random sample from remaining
+        if num_random > 0 and len(remaining_df) > 0:
+            random_samples = remaining_df.sample(
+                n=min(num_random, len(remaining_df)), 
+                random_state=seed
+            )
+            # Combine fixed + random
+            sampled = pd. concat([fixed_samples, random_samples])
+        else:
+            sampled = fixed_samples
+    
+    # Build example texts
     example_texts = []
-    for _, r in sampled.iterrows():
+    for _, r in sampled. iterrows():
         ctx = r.get("prompt", "")
         tgt = r.get("target", "")
         example = f"{ctx}\n{tgt}\n"
         example_texts.append(example)
-    return "\n---\n".join(example_texts) + "\n\n"
+    
+    return "\n---\n". join(example_texts) + "\n\n"
 
 
 def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
