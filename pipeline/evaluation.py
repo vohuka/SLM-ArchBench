@@ -20,7 +20,7 @@ from metrics import (
     compute_compliance_score,
     compute_ripple_effect_recall,
 )
-from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED, MODEL_MAX_TOKEN, FEW_SHOT_GOLDEN_INDICES
+from config import GENERATION_CONFIG, FEW_SHOT_K, RANDOM_SEED, MODEL_MAX_TOKEN, FEW_SHOT_GOLDEN_COUNT, FEW_SHOT_PROMPT_PATH
 
 # Rate limit delay for Gemini API (free tier: 15 RPM)
 GEMINI_RATE_LIMIT_DELAY = 5 
@@ -45,56 +45,69 @@ def get_results_dir(model_key: str) -> str:
 
 def build_few_shot_prefix(support_df: pd.DataFrame, k: int = 2, seed: int = 42) -> str:
     """
-    Build few-shot examples prefix from support_df.
+    Build few-shot examples prefix. 
     
-    - Uses FEW_SHOT_FIXED_INDICES from config for the first examples
-    - If k > len(fixed_indices): adds random samples for the rest
+    - K < 2: Raise error (minimum 2 golden examples required)
+    - K == 2: Use only golden examples from prompt file
+    - K > 2: Use golden examples + (K-2) random samples from support_df
+    
+    Args:
+        support_df: DataFrame containing training examples (for additional random samples)
+        k: Number of few-shot examples to use (minimum 2)
+        seed: Random seed for additional sampling
+    
+    Returns:
+        String containing formatted few-shot prefix
     """
+    # Validate K
+    if k < FEW_SHOT_GOLDEN_COUNT:
+        raise ValueError(
+            f"FEW_SHOT_K must be >= {FEW_SHOT_GOLDEN_COUNT} (number of golden examples).  "
+            f"Got K={k}"
+        )
+    
+    # Load golden examples from file
+    try:
+        with open(FEW_SHOT_PROMPT_PATH, 'r', encoding='utf-8') as f:
+            prefix = f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Few-shot prompt file not found: {FEW_SHOT_PROMPT_PATH}. "
+            f"Please create this file with {FEW_SHOT_GOLDEN_COUNT} golden examples."
+        )
+    
+    # If K == 2, return only golden examples
+    if k == FEW_SHOT_GOLDEN_COUNT:
+        print(f"[INFO] Using {k} golden examples from {FEW_SHOT_PROMPT_PATH}")
+        return prefix
+    
+    # If K > 2, add random samples from support_df
+    num_random = k - FEW_SHOT_GOLDEN_COUNT
+    
     if support_df is None or len(support_df) == 0:
-        return ""
+        print(f"[WARN] support_df is empty, using only {FEW_SHOT_GOLDEN_COUNT} golden examples")
+        return prefix
     
-    k = min(k, len(support_df))
+    # Random sample from support_df
+    num_random = min(num_random, len(support_df))
+    random_samples = support_df.sample(n=num_random, random_state=seed)
     
-    # Get golden indices from config
-    fixed_indices = FEW_SHOT_GOLDEN_INDICES
-    
-    # Validate fixed indices exist in dataframe
-    valid_fixed_indices = [idx for idx in fixed_indices if idx < len(support_df)]
-    
-    if k <= len(valid_fixed_indices):
-        # Use only fixed indices (up to k)
-        sampled = support_df.iloc[valid_fixed_indices[:k]]
-    else:
-        # Use fixed indices + random samples for the rest
-        fixed_samples = support_df.iloc[valid_fixed_indices]
-        
-        # Get remaining rows (exclude fixed indices) for random sampling
-        remaining_df = support_df.drop(support_df.index[valid_fixed_indices])
-        
-        # Number of additional random samples needed
-        num_random = k - len(valid_fixed_indices)
-        
-        # Random sample from remaining
-        if num_random > 0 and len(remaining_df) > 0:
-            random_samples = remaining_df.sample(
-                n=min(num_random, len(remaining_df)), 
-                random_state=seed
-            )
-            # Combine fixed + random
-            sampled = pd.concat([fixed_samples, random_samples])
-        else:
-            sampled = fixed_samples
-    
-    # Build example texts
-    example_texts = []
-    for _, r in sampled.iterrows():
+    # Build additional examples
+    additional_examples = []
+    for _, r in random_samples.iterrows():
         ctx = r.get("prompt", "")
         tgt = r.get("target", "")
-        example = f"{ctx}\n{tgt}\n"
-        example_texts.append(example)
+        # Extract context from prompt (remove instruction prefix)
+        if "Context:" in ctx:
+            ctx_content = ctx.split("Context:")[-1].split("Decision:")[0].strip()
+        else:
+            ctx_content = ctx
+        example = f"Context:\n{ctx_content}\n\nDecision:\n{tgt}\n\n---\n\n"
+        additional_examples. append(example)
     
-    return "\n---\n".join(example_texts) + "\n\n"
-
+    print(f"[INFO] Using {FEW_SHOT_GOLDEN_COUNT} golden examples + {num_random} random samples (total K={k})")
+    
+    return prefix + "".join(additional_examples)
 
 def evaluate_all_metrics(model, tokenizer, val_df: pd.DataFrame, run_id: str,
                          model_key: str,

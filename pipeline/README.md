@@ -46,9 +46,9 @@ The free tier limits each API key to **250 requests/day** and **10 requests/minu
 
 ### Optional Variables
 
-| Variable | Description | Default |
-|---|---|---|
-| `FEW_SHOT_K` | Number of examples for few-shot evaluation | `2` |
+| Variable | Description | Default | Note |
+|---|---|---|---|
+| `FEW_SHOT_K` | Number of examples for few-shot evaluation | `2` | Min value |
 
 **Example:**
 ```bash

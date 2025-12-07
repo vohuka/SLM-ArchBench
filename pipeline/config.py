@@ -92,8 +92,11 @@ GENERATION_CONFIG = {
 # Few-shot configuration
 FEW_SHOT_K = int(os.environ.get("FEW_SHOT_K", 2))
 
-# These examples will always be used first before random sampling
-FEW_SHOT_GOLDEN_INDICES = [50, 72]
+# Path to few-shot prompt prefix file (contains golden examples)
+FEW_SHOT_PROMPT_PATH = "few_shot_prompt.txt"
+
+# Number of golden examples in the prompt file
+FEW_SHOT_GOLDEN_COUNT = 2
 
 # Run all 3 modes sequentially (default)
 EVAL_MODES = ["zero_shot", "few_shot", "fine_tune"]
