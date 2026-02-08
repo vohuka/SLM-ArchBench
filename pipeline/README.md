@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 #### 1. Hugging Face Token
 
-**Your token must have READ permission. ** Get it from [Hugging Face Settings → Access Tokens](https://huggingface.co/settings/tokens).
+**Your token must have READ permission.** Get it from [Hugging Face Settings → Access Tokens](https://huggingface.co/settings/tokens).
 
 | OS | Command |
 |---|---|
