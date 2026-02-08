@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 
 ---
+## [3.3] - 2026-02-09
+
+### Critical Updates
+- **Updated README for new Gemini API free-tier limits**: Google reduced free tier from 250 req/day to **20 req/day** and from 10 req/min to **5 req/min**.
+- **Added strong warning**: Free tier is no longer viable for full evaluation (requires 8+ days with 4 keys vs 10-15 minutes with paid key).
+
+### Details
+- **README.md**: Updated Gemini API section with strikethrough for old limits and prominent warnings about impracticality of free tier.
+
+---
 ## [3.2] - 2025-12-07
 
 ### Highlights

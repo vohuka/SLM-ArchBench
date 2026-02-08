@@ -36,16 +36,25 @@ pip install -r requirements.txt
 
 Get it from [Google AI Studio → Create API Key](https://aistudio.google.com/apikey).
 
-> ⚠️ **Important Recommendation:** We strongly recommend using a **paid Gemini API key** for running experiments. Free-tier API keys have the following limitations that may affect your results:
-> - **250 requests/day** and **10 requests/minute** per key
-> - **Quota may be reduced unexpectedly** by Google without notice
-> - **Rate limits may cause incomplete evaluations**, resulting in missing or corrupted metrics
+> 🚨 **CRITICAL: Paid API Key Required for Full Evaluation**
 > 
-> If your experiment is interrupted due to quota issues, you may need to re-run the entire evaluation, wasting significant time and compute resources.
+> Google has significantly reduced free-tier limits:
+> - ~~**250 requests/day**~~ → **20 requests/day** per key
+> - ~~**10 requests/minute**~~ → **5 requests/minute** per key
+> 
+> **Full evaluation requires ~570 Gemini API calls**, which is **impossible with free tier** (would take 29+ days with 1 key).
+> 
+> ⚠️ **Free-tier limitations:**
+> - Even with 4 API keys rotating (as previous version): only **80 requests/day** → requires **8+ days** to complete
+> - **Quota may be reduced unexpectedly** by Google without notice
+> - **Rate limits will cause incomplete evaluations**, resulting in missing or corrupted metrics
+> - If interrupted, you must re-run the entire evaluation, wasting time and compute
+> 
+> **✅ Solution: Use a paid Gemini API key** (~$5-15 per full run, completes in 10-15 minutes)
 
-**Free-tier setup (use at your own risk):**
+**Free-tier setup (NOT recommended - takes 8+ days with 4 keys):**
 
-The free tier limits each API key to **250 requests/day** and **10 requests/minute**. To increase throughput, you can use up to 4 API keys that rotate automatically.
+The free tier limits each API key to ~~**250 requests/day**~~ **20 requests/day** and ~~**10 requests/minute**~~ **5 requests/minute**. To increase throughput, you can use up to 4 API keys that rotate automatically.
 
 | OS | Commands |
 |---|---|
@@ -209,9 +218,9 @@ pip install -r requirements.txt && python pipeline.py
 
 ### Gemini API (for Compliance Score)
 
-| Setup | Estimated Cost | Reliability |
-|---|---|---|
-| Free tier (4 keys) | $0 | ⚠️ May fail unexpectedly |
-| Pay-as-you-go | ~$5-15 per full run | ✅ Reliable |
+| Setup | Estimated Cost | Reliability | Time to Complete |
+|---|---|---|---|
+| Free tier (4 keys) | $0 | ❌ Not viable | **8+ days** |
+| Pay-as-you-go | ~$5-15 per full run | ✅ Reliable | **10-15 minutes** |
 
-> **Tip:** A full evaluation run (10 models × 3 modes × 19 samples) requires approximately **570 Gemini API calls**. With free-tier limits of 250 requests/day per key, you would need at least 3 days to complete using free keys—assuming no quota reductions occur. 
+> **Important:** A full evaluation run (10 models × 3 modes × 19 samples) requires approximately **570 Gemini API calls**. With ~~free-tier limits of 250 requests/day~~ **new limits of 20 requests/day** per key, you would need ~~at least 3 days~~ **29 days with 1 key or 8 days with 4 keys** to complete using free keys—assuming no quota reductions occur. **Free tier is no longer practical for this benchmark.** 
