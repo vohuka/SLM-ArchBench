@@ -11,6 +11,12 @@
 
 ## Installation
 
+### Navigate to Pipeline Directory
+
+```bash
+cd pipeline
+```
+
 ### Install Dependencies
 
 ```bash
@@ -135,7 +141,8 @@ python pipeline.py
 
 **macOS / Linux:**
 ```bash
-pip install -r requirements. txt && \
+cd pipeline && \
+pip install -r requirements.txt && \
 export HF_TOKEN="your_huggingface_token_here" && \
 export GEMINI_API_KEY_1="your_gemini_api_key_here" && \
 python pipeline.py
@@ -143,6 +150,7 @@ python pipeline.py
 
 **Windows PowerShell:**
 ```powershell
+cd pipeline; `
 pip install -r requirements.txt; `
 $env:HF_TOKEN="your_huggingface_token_here"; `
 $env:GEMINI_API_KEY_1="your_gemini_api_key_here"; `
@@ -184,7 +192,7 @@ results/
 3. **Select GPU runtime** (recommended:  A10G or higher).
 4. Run:
 ```bash
-pip install -r requirements.txt && python pipeline.py
+cd pipeline && pip install -r requirements.txt && python pipeline.py
 ```
 
 ---
