@@ -231,4 +231,10 @@ cd pipeline && pip install -r requirements.txt && python pipeline.py
 | Free tier (4 keys) | $0 | ❌ Not viable | **8+ days** |
 | Pay-as-you-go | ~$5-15 per full run | ✅ Reliable | **10-15 minutes** |
 
-> **Important:** A full evaluation run (10 models × 3 modes × 19 samples) requires approximately **570 Gemini API calls**. With ~~free-tier limits of 250 requests/day~~ **new limits of 20 requests/day** per key, you would need ~~at least 3 days~~ **29 days with 1 key or 8 days with 4 keys** to complete using free keys—assuming no quota reductions occur. **Free tier is no longer practical for this benchmark.** 
+> **Important:** A full evaluation run (10 models × 3 modes × 19 samples) requires approximately **570 Gemini API calls**. With ~~free-tier limits of 250 requests/day~~ **new limits of 20 requests/day** per key, you would need ~~at least 3 days~~ **29 days with 1 key or 8 days with 4 keys** to complete using free keys—assuming no quota reductions occur. **Free tier is no longer practical for this benchmark.**
+
+---
+
+## Result Variability
+
+Due to LLM-based judging, scores may vary slightly between runs.  Variations are typically small and do not affect overall conclusions. 
