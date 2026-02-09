@@ -23,6 +23,15 @@ cd pipeline
 pip install -r requirements.txt
 ```
 
+> **Note:** If you encounter an `externally-managed-environment` error, it's recommended to use a virtual environment:
+> ```bash
+> python3 -m venv .venv
+> source .venv/bin/activate      # On Linux/Mac
+> # or
+> .venv\Scripts\activate         # On Windows
+> pip install -r requirements.txt
+> ```
+
 ---
 
 ## Environment Variables
