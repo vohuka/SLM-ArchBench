@@ -8,9 +8,14 @@ All notable changes to this project will be documented in this file.
 ### Critical Updates
 - **Updated README for new Gemini API free-tier limits**: Google reduced free tier from 250 req/day to **20 req/day** and from 10 req/min to **5 req/min**.
 - **Added strong warning**: Free tier is no longer viable for full evaluation (requires 8+ days with 4 keys vs 10-15 minutes with paid key).
+- **Renamed README.md → INSTALL.md**: Separated installation/setup instructions into dedicated file. Future README.md will focus on showcasing results and project overview.
 
 ### Details
-- **README.md**: Updated Gemini API section with strikethrough for old limits and prominent warnings about impracticality of free tier.
+- **INSTALL.md** (previously README.md): 
+  - Renamed to better reflect its purpose as installation and setup guide
+  - Updated GPU requirement to specify L4 or higher
+  - Updated Gemini API section with strikethrough for old limits and prominent warnings about impracticality of free tier
+- **Documentation restructure**: README.md will be recreated later to showcase benchmark results, methodology, and project highlights.
 
 ---
 ## [3.2] - 2025-12-07

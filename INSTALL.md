@@ -3,7 +3,7 @@
 ## Prerequisites
 
 * Python 3.10+
-* NVIDIA GPU (recommended for fast fine-tuning)
+* NVIDIA GPU L4 or higher (recommended for fast fine-tuning)
 * A valid Gemini API key for LLM-as-a-Judge evaluation
 * A valid Hugging Face token with READ permission
 
