@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 
 ---
+## [3.4] - 2026-02-11
+
+### Highlights
+- **Added visualization scripts**: Created Python scripts to generate bar charts for compliance, diversity, and F1 scores.
+- **Added consolidated results**: Added `all_runs_summary.csv` containing aggregated evaluation results across all models and evaluation modes.
+- **Code cleanup**: Removed deprecated pipeline files from both `pipeline/` and `example-pipeline/` directories.
+
+### Details
+- **result_visualization/** directory:
+  - Added `draw_barchart_compilance.py` to visualize compliance scores across models
+  - Added `draw_barchart_diversity.py` to visualize diversity scores across models  
+  - Added `draw_barchart_f1.py` to visualize F1 scores across models
+  - All scripts now read from `../result/all_runs_summary.csv` using relative paths
+- **result/** directory:
+  - Added `all_runs_summary.csv` with comprehensive metrics for all 10 models across 3 evaluation modes (zero-shot, few-shot, fine-tune)
+  - Includes ROUGE, BLEU, METEOR, BERTScore, diversity, compliance, and Ripple metrics
+- **Deprecated file removal**: Deleted `[deprecated]pipeline.py` files that were replaced in version 2.0 modular refactor.
+
+---
 ## [3.3] - 2026-02-09
 
 ### Critical Updates
@@ -131,3 +150,4 @@ Initial release
 - Served as the foundation for modular refactors in later versions.
 
 ---
+

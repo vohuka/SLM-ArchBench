@@ -1,9 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 # Read the all_runs_summary CSV file
-df = pd.read_csv('all_runs_summary.csv')
+result_csv_path = (Path(__file__).resolve().parent / '..' / 'result' / 'all_runs_summary.csv').resolve()
+df = pd.read_csv(result_csv_path)
 
 # Filter data by evaluation mode
 zero_shot_df = df[df['eval_mode'] == 'zero_shot'][['model_key', 'bertscore_f1']].set_index('model_key')
