@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### Highlights
 - **Added visualization scripts**: Created Python scripts to generate bar charts for compliance, diversity, and F1 scores.
 - **Added consolidated results**: Added `all_runs_summary.csv` containing aggregated evaluation results across all models and evaluation modes.
+- **Enhanced documentation**: Added comprehensive pipeline architecture section to README.md with data flow diagram and module responsibilities.
 - **Code cleanup**: Removed deprecated pipeline files from both `pipeline/` and `example-pipeline/` directories.
 
 ### Details
@@ -19,6 +20,12 @@ All notable changes to this project will be documented in this file.
 - **result/** directory:
   - Added `all_runs_summary.csv` with comprehensive metrics for all 10 models across 3 evaluation modes (zero-shot, few-shot, fine-tune)
   - Includes ROUGE, BLEU, METEOR, BERTScore, diversity, compliance, and Ripple metrics
+- **README.md**:
+  - Added **Pipeline Architecture** section (Section 3) with ASCII art data flow diagram
+  - Diagram illustrates complete pipeline from configuration → preprocessing → model loading → training → evaluation → metrics → results
+  - Shows how three evaluation modes (zero-shot, few-shot, fine-tune) flow through shared evaluation pipeline
+  - Added **Module Responsibilities** table documenting purpose of each Python module
+  - Updated directory structure to reflect current state (removed deprecated files, added all_runs_summary.csv)
 - **Deprecated file removal**: Deleted `[deprecated]pipeline.py` files that were replaced in version 2.0 modular refactor.
 
 ---

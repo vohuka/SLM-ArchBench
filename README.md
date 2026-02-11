@@ -16,7 +16,6 @@ SLM-ArchBench/
 ├─ INSTALL.md
 ├─ README.md
 ├─ example-pipeline/
-│  ├─ [deprecated]pipeline.py
 │  ├─ config.py
 │  ├─ evaluation.py
 │  ├─ few_shot_prompt.txt
@@ -32,7 +31,6 @@ SLM-ArchBench/
 │  └─ test/
 │     └─ test-model.py
 ├─ pipeline/
-│  ├─ [deprecated]pipeline.py
 │  ├─ config.py
 │  ├─ evaluation.py
 │  ├─ few_shot_prompt.txt
@@ -48,9 +46,10 @@ SLM-ArchBench/
 │  └─ test/
 │     └─ test-model.py
 ├─ result/
-│  ├─ few_shot_subset.csv        # Results: Few-shot experiments
-│  ├─ fine_tune_subset.csv       # Results: Fine-tuned models (Metrics: ROUGE, BERTScore, etc.)
-│  ├─ zero_shot_subset.csv       # Results: Zero-shot experiments
+│  ├─ all_runs_summary.csv           # Combined results across all models and modes
+│  ├─ few_shot_subset.csv            # Results: Few-shot experiments
+│  ├─ fine_tune_subset.csv           # Results: Fine-tuned models (Metrics: ROUGE, BERTScore, etc.)
+│  ├─ zero_shot_subset.csv           # Results: Zero-shot experiments
 │  └─ pictures/
 └─ result_visualization/
    ├─ draw_barchart_compilance.py
@@ -58,7 +57,120 @@ SLM-ArchBench/
    └─ draw_barchart_f1.py
 ```
 
-## 3. Reproduction of Results (Detailed)
+## 3. Pipeline Architecture
+
+The evaluation pipeline follows a modular design with clear separation of concerns. Below is the data flow diagram:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              PIPELINE ORCHESTRATOR                              │
+│                                 (pipeline.py)                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              CONFIGURATION                                      │
+│                                (config.py)                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                  │
+│  │ MODEL_CANDIDATES│  │ TRAINING_ARGS   │  │ GENERATION_     │                  │
+│  │ (10 SLMs)       │  │ (LoRA, epochs,  │  │ CONFIG          │                  │
+│  │                 │  │  batch size)    │  │ (tokens, temp)  │                  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+         ┌─────────────────────────────┼─────────────────────────────┐
+         ▼                             ▼                             ▼
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│   ZERO-SHOT     │         │   FEW-SHOT      │         │   FINE-TUNE     │
+│                 │         │                 │         │                 │
+│ Pre-trained     │         │ K examples      │         │ LoRA training   │
+│ model only      │         │ prepended to    │         │ on train set    │
+│                 │         │ each prompt     │         │                 │
+└────────┬────────┘         └────────┬────────┘         └────────┬────────┘
+         │                           │                           │
+         └────────────────────────────┬──────────────────────────┘
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              DATA PREPROCESSING                                 |
+│                              (preprocessing.py)                                 │
+│                                                                                 │
+│   ArchAI-ADR.csv ──► preprocess_archai_adr() ──► {"prompt", "target"}           │
+│   (context, decision)      Build instruction       Train/Test split             │
+│                            prompts                 (80/20)                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              MODEL LOADING                                      │
+│                                (models.py)                                      |
+│                                                                                 │
+│   HuggingFace Hub ──► load_tokenizer_and_model() ──► 4-bit Quantization (QLoRA) │
+│                       + LoRA adapter setup                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           TRAINING (Fine-tune only)                             |
+│                               (training.py)                                     |
+│                                                                                 │
+│   Train Dataset ──► HF Trainer ──► LoRA Fine-tuning ──► Saved Model             │
+│                     (10 epochs)    (r=16, α=32)        (models/{model_key}/)    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              EVALUATION                                         │
+│                             (evaluation.py)                                     │
+│                                                                                 │
+│   Test Dataset ──► Model Generation ──► Collect Predictions                     │
+│                    (max_new_tokens=256)                                         │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              METRICS COMPUTATION                                │
+│                                (metrics.py)                                     │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │ NLG Metrics          │ Research Metrics                                 │   │
+│   ├──────────────────────┼──────────────────────────────────────────────────┤   │
+│   │ • ROUGE-1/2/L        │ • Diversity Score (vocabulary richness)          │   │
+│   │ • BLEU (SacreBLEU)   │ • Compliance Score (ADR structure adherence)     │   │
+│   │ • METEOR             │ • Ripple Effect (P/R/F1 for consequences)        │   │
+│   │ • BERTScore (P/R/F1) │                                                  │   │
+│   └──────────────────────┴──────────────────────────────────────────────────┘   │
+│                                                                                 │
+│   Compliance evaluated via Gemini 2.5 Flash (LLM-as-Judge)                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              RESULTS OUTPUT                                     │
+│                                                                                 │
+│   results/                                                                      │
+│   ├─ all_runs_summary.csv          (combined metrics for all models & modes)    │
+│   ├─ {model_key}/                                                               │
+│   │   ├─ zeroshot_predictions.csv                                               │
+│   │   ├─ fewshot_predictions.csv                                                │
+│   │   └─ finetuned_predictions.csv                                              │
+│   └─ {mode}_summary.csv            (per-mode aggregated results)                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Module Responsibilities
+
+| Module | Purpose   |
+|--------|-----------|
+| `pipeline.py`      | Main orchestrator: iterates over models and datasets, coordinates all modes                     |
+| `config.py`        | Central configuration: model list, hyperparameters, LoRA settings, API keys                     |
+| `models.py`        | Model/tokenizer loading with 4-bit quantization and LoRA adapter setup                          |
+| `preprocessing.py` | Dataset-specific preprocessing, builds instruction prompts                                      |
+| `training.py`      | Fine-tuning logic using HuggingFace Trainer with LoRA                                           |
+| `evaluation.py`    | Generation and metric collection for all three evaluation modes                                 |
+| `metrics.py`       | NLG metrics (ROUGE, BLEU, METEOR, BERTScore) + research metrics (Diversity, Compliance, Ripple) |
+| `utils.py`         | Helper functions (parameter counting, component extraction)                                     |
+
+## 4. Reproduction of Results (Detailed)
 
 This section guides the reviewer to verify the key findings presented in **Section IV (Experimental Results)** of the paper.
 
