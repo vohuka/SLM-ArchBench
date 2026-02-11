@@ -1,4 +1,6 @@
-# SLM-ArchBench — Quick Start Guide
+# SLM-ArchBench — Install & Run
+
+This benchmark can take over 1 hour when running the full pipeline. For artifact evaluation, use the `example-pipeline`.
 
 ## Prerequisites
 
@@ -9,21 +11,16 @@
 
 ---
 
-## Installation
+## Recommended: Example Pipeline (Artifact Evaluation)
 
-### Navigate to Pipeline Directory
-
-```bash
-cd pipeline
-```
-
-### Install Dependencies
+### 1) Install dependencies
 
 ```bash
+cd example-pipeline
 pip install -r requirements.txt
 ```
 
-> **Note:** If you encounter an `externally-managed-environment` error, it's recommended to use a virtual environment:
+> **Note:** If you hit an `externally-managed-environment` error, use a virtual environment:
 > ```bash
 > python3 -m venv .venv
 > source .venv/bin/activate      # On Linux/Mac
@@ -32,66 +29,65 @@ pip install -r requirements.txt
 > pip install -r requirements.txt
 > ```
 
----
+### 2) Set environment variables
 
-## Environment Variables
-
-### Required Variables
-
-#### 1. Hugging Face Token
-
-**Your token must have READ permission.** Get it from [Hugging Face Settings → Access Tokens](https://huggingface.co/settings/tokens).
+**Hugging Face Token:**
 
 | OS | Command |
 |---|---|
 | macOS / Linux | `export HF_TOKEN="your_huggingface_token_here"` |
 | Windows PowerShell | `$env:HF_TOKEN="your_huggingface_token_here"` |
 
-#### 2. Gemini API Key
+**Gemini API Key:**
 
-Get it from [Google AI Studio → Create API Key](https://aistudio.google.com/apikey).
-
-> 🚨 **CRITICAL: Paid API Key Required for Full Evaluation**
-> 
-> Google has significantly reduced free-tier limits:
-> - ~~**250 requests/day**~~ → **20 requests/day** per key
-> - ~~**10 requests/minute**~~ → **5 requests/minute** per key
-> 
-> **Full evaluation requires ~570 Gemini API calls**, which is **impossible with free tier** (would take 29+ days with 1 key).
-> 
-> ⚠️ **Free-tier limitations:**
-> - Even with 4 API keys rotating (as previous version): only **80 requests/day** → requires **8+ days** to complete
-> - **Quota may be reduced unexpectedly** by Google without notice
-> - **Rate limits will cause incomplete evaluations**, resulting in missing or corrupted metrics
-> - If interrupted, you must re-run the entire evaluation, wasting time and compute
-> 
-> **✅ Solution: Use a paid Gemini API key** (~$5-15 per full run, completes in 10-15 minutes)
-
-**Free-tier setup (NOT recommended - takes 8+ days with 4 keys):**
-
-The free tier limits each API key to ~~**250 requests/day**~~ **20 requests/day** and ~~**10 requests/minute**~~ **5 requests/minute**. To increase throughput, you can use up to 4 API keys that rotate automatically.
-
-| OS | Commands |
-|---|---|
-| macOS / Linux | `export GEMINI_API_KEY_1="your_first_api_key"`<br>`export GEMINI_API_KEY_2="your_second_api_key"`<br>`export GEMINI_API_KEY_3="your_third_api_key"`<br>`export GEMINI_API_KEY_4="your_fourth_api_key"` |
-| Windows PowerShell | `$env:GEMINI_API_KEY_1="your_first_api_key"`<br>`$env:GEMINI_API_KEY_2="your_second_api_key"`<br>`$env:GEMINI_API_KEY_3="your_third_api_key"`<br>`$env:GEMINI_API_KEY_4="your_fourth_api_key"` |
-
-> **Note:** You only need to set the keys you have.  The system will automatically use all available keys.
-
-**Paid API setup (recommended):**
+Since the example pipeline needs only ~3 API calls, a single key is sufficient:
 
 | OS | Command |
 |---|---|
-| macOS / Linux | `export GEMINI_API_KEY_1="your_paid_api_key"` |
-| Windows PowerShell | `$env:GEMINI_API_KEY_1="your_paid_api_key"` |
+| macOS / Linux | `export GEMINI_API_KEY_1="your_first_api_key"` <br>`export GEMINI_API_KEY_2="your_second_api_key"`<br>`export GEMINI_API_KEY_3="your_third_api_key"` |
+| Windows PowerShell | `$env:GEMINI_API_KEY_1="your_first_api_key"` `$env:GEMINI_API_KEY_2="your_second_api_key"`<br>`$env:GEMINI_API_KEY_3="your_third_api_key"` |
 
-### Optional Variables
+### 3) Run
 
+```bash
+python pipeline.py
+```
+
+---
+
+## Full Pipeline (Longer Runtime)
+
+Use this only if you need full-scale results. Runtime can exceed 1 hour depending on model count and GPU.
+
+```bash
+cd pipeline
+pip install -r requirements.txt
+```
+
+Set the same `HF_TOKEN` and `GEMINI_API_KEY_1` (or multiple keys for faster throughput) environment variables as above, then run:
+    
+```bash
+python pipeline.py
+```
+> ⚠️ **Note:** Full pipeline requires ~570 Gemini API calls. See [Cost Estimation](#cost-estimation) for paid key recommendation.
+
+### Configuration (Optional)
+
+**Evaluation Modes:** Customize the pipeline by editing `config.py`:
+```python
+# Run all 3 modes (default)
+EVAL_MODES = ["zero_shot", "few_shot", "fine_tune"]
+
+# Or run specific modes
+EVAL_MODES = ["zero_shot"]  # Zero-shot only
+```
+
+**Few-shot Examples:**
 | Variable | Description | Default | Note |
 |---|---|---|---|
 | `FEW_SHOT_K` | Number of examples for few-shot evaluation | `2` | Min value |
 
-**Example:**
+***Example:***
 ```bash
 # macOS / Linux
 export FEW_SHOT_K=5
@@ -100,76 +96,7 @@ export FEW_SHOT_K=5
 $env:FEW_SHOT_K=5
 ```
 
----
-
-## Configuration
-
-You can customize the pipeline by editing `config.py`:
-
-### Evaluation Modes
-
-```python
-# Run all 3 modes sequentially (default)
-EVAL_MODES = ["zero_shot", "few_shot", "fine_tune"]
-
-# Run only specific modes
-EVAL_MODES = ["zero_shot"]  # Zero-shot only
-EVAL_MODES = ["fine_tune"]  # Fine-tuning only
-```
-
-### Model Selection
-
-```python
-MODEL_CANDIDATES = {
-    "llama-3.2-1b": "meta-llama/Llama-3.2-1B-Instruct",
-    "phi-3-mini": "microsoft/Phi-3-mini-4k-instruct",
-    # Add or remove models as needed
-}
-```
-
-### Training Hyperparameters
-
-```python
-TRAINING_ARGS = {
-    "num_train_epochs": 10,
-    "per_device_train_batch_size": 2,
-    "learning_rate":  2e-4,
-    # ...  see config.py for full options
-}
-```
-
----
-
-## Run the Pipeline
-
-```bash
-python pipeline.py
-```
-
-### One-liner Setup & Run
-
-**macOS / Linux:**
-```bash
-cd pipeline && \
-pip install -r requirements.txt && \
-export HF_TOKEN="your_huggingface_token_here" && \
-export GEMINI_API_KEY_1="your_gemini_api_key_here" && \
-python pipeline.py
-```
-
-**Windows PowerShell:**
-```powershell
-cd pipeline; `
-pip install -r requirements.txt; `
-$env:HF_TOKEN="your_huggingface_token_here"; `
-$env:GEMINI_API_KEY_1="your_gemini_api_key_here"; `
-python pipeline.py
-```
-
----
-
 ## Output Structure
-
 Results are organized by model and evaluation mode:
 
 ```
@@ -188,36 +115,6 @@ results/
 ├── few_shot_summary.csv
 └── fine_tune_summary.csv
 ```
-
----
-
-## Running on Lightning AI
-
-1. Upload your project.
-2. Add environment variables:
-   - `HF_TOKEN` (with READ permission)
-   - `GEMINI_API_KEY_1` (paid key recommended)
-   - (Optional) `FEW_SHOT_K`
-3. **Select GPU runtime** (recommended:  A10G or higher).
-4. Run:
-```bash
-cd pipeline && pip install -r requirements.txt && python pipeline.py
-```
-
----
-
-## Evaluation Modes
-
-| Mode | Description | Training Required |
-|---|---|---|
-| `zero_shot` | Evaluate pre-trained model without examples | ❌ No |
-| `few_shot` | Evaluate with K examples prepended to prompt | ❌ No |
-| `fine_tune` | Fine-tune with LoRA, then evaluate | ✅ Yes |
-
----
-
-## Troubleshooting
-
 ### Common Issues
 
 | Issue | Solution |

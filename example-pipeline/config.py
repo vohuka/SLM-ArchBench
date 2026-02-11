@@ -8,29 +8,11 @@ import os
 # ============================================================
 
 MODEL_CANDIDATES = {
-    "llama-3.2-1b": "meta-llama/Llama-3.2-1B-Instruct",
-    "llama-3.2-3b": "meta-llama/Llama-3.2-3B-Instruct",
-    "phi-3-mini": "microsoft/Phi-3-mini-4k-instruct",
-    "olmo-2-1b": "allenai/OLMo-2-0425-1B-Instruct",
-    "olmo-2-7b": "allenai/OLMo-2-1124-7B-Instruct",
-    "qwen2.5-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
-    "qwen2.5-3b": "Qwen/Qwen2.5-3B-Instruct",
-    "gemma-3-1b": "google/gemma-3-1b-it",
-    "smollm2-1.7b": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
-    "mistral-7b-v0.3": "mistralai/Mistral-7B-Instruct-v0.3",
+    "llama-3.2-1b": "meta-llama/Llama-3.2-1B-Instruct"
 }
 
 MODEL_MAX_TOKEN = {
-    "llama-3.2-1b": 131072,
-    "llama-3.2-3b": 131072,
-    "phi-3-mini": 4096,
-    "olmo-2-1b": 4096,
-    "olmo-2-7b": 4096,
-    "qwen2.5-1.5b": 32768,
-    "qwen2.5-3b": 32768,
-    "gemma-3-1b": 32768,
-    "smollm2-1.7b": 8192,
-    "mistral-7b-v0.3": 32768,
+    "llama-3.2-1b": 131072
 }
 # ============================================================
 # DATASET CONFIGURATIONS
