@@ -1,4 +1,4 @@
-# Artifact Description: Exploring the Reasoning Depth of SLMs in Software Architecture
+# Replication Package: Exploring the Reasoning Depth of SLMs in Software Architecture
 
 **Paper Title:** Exploring the Reasoning Depth of Small Language Models in Software Architecture: A Multidimensional Evaluation Framework Towards Software Engineering 2.0
 
